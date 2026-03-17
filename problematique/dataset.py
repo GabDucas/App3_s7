@@ -19,21 +19,21 @@ class HandwrittenWords(Dataset):
             self.data = pickle.load(fp)
 
         # Extraction des symboles
-        # À compléter
+        # TODO
         
         # Ajout du padding aux séquences
-        # À compléter
+        # TODO
         
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        # À compléter
+        # TODO
         return None, None
 
     def visualisation(self, idx):
         # Visualisation des échantillons
-        # À compléter (optionel)
+        # TODO (optionel)
         pass
         
 

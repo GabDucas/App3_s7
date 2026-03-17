@@ -6,13 +6,13 @@ import numpy as np
 def edit_distance(x,y):
     # Calcul de la distance d'édition
     
-    # À compléter
+    # TODO
     
     return None
 
 def confusion_matrix(true, pred, ignore=[]):
     # Calcul de la matrice de confusion
 
-    # À compléter
+    # TODO
 
     return None

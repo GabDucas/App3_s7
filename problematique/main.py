@@ -21,7 +21,7 @@ if __name__ == '__main__':
     seed = 1                # Pour répétabilité
     n_workers = 0           # Nombre de threads pour chargement des données (mettre à 0 sur Windows)
 
-    # À compléter
+    # TODO
     n_epochs = 0
 
     # ---------------- Fin Paramètres et hyperparamètres ----------------#
@@ -35,63 +35,63 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() and not force_cpu else "cpu")
 
     # Instanciation de l'ensemble de données
-    # À compléter
+    # TODO
 
     
     # Séparation de l'ensemble de données (entraînement et validation)
-    # À compléter
+    # TODO
    
 
     # Instanciation des dataloaders
-    # À compléter
+    # TODO
 
 
     # Instanciation du model
-    # À compléter
+    # TODO
 
 
     # Initialisation des variables
-    # À compléter
+    # TODO
 
     if trainning:
 
         # Fonction de coût et optimizateur
-        # À compléter
+        # TODO
 
         for epoch in range(1, n_epochs + 1):
             # Entraînement
-            # À compléter
+            # TODO
             
             # Validation
-            # À compléter
+            # TODO
 
             # Ajouter les loss aux listes
-            # À compléter
+            # TODO
 
             # Enregistrer les poids
-            # À compléter
+            # TODO
 
 
             # Affichage
             if learning_curves:
                 # visualization
-                # À compléter
+                # TODO
                 pass
 
     if test:
         # Évaluation
-        # À compléter
+        # TODO
 
         # Charger les données de tests
-        # À compléter
+        # TODO
 
         # Affichage de l'attention
-        # À compléter (si nécessaire)
+        # TODO (si nécessaire)
 
         # Affichage des résultats de test
-        # À compléter
+        # TODO
         
         # Affichage de la matrice de confusion
-        # À compléter
+        # TODO
 
         pass

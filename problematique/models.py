@@ -21,16 +21,16 @@ class trajectory2seq(nn.Module):
 
         # Definition des couches
         # Couches pour rnn
-        # À compléter
+        # TODO
 
         # Couches pour attention
-        # À compléter
+        # TODO
 
         # Couche dense pour la sortie
-        # À compléter
+        # TODO
 
     def forward(self, x):
-        # À compléter
+        # TODO
         return None
     
 
