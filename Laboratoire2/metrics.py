@@ -6,7 +6,25 @@ def edit_distance(a,b):
 
     # ---------------------- Laboratoire 2 - Question 1 - Début de la section à compléter ------------------
 
-    return None
+    m, n = len(a), len(b)
+    D = np.zeros((m+1, n+1), dtype=int)
+    
+    for coordinates, value in np.ndenumerate(D):
+        x, y = coordinates
+        if x == 0:
+            D[coordinates] = y
+        elif y == 0:
+            D[coordinates] = x
+        else:
+            min1 = D[x,y-1] + 1
+            min2 = D[x-1,y] + 1
+            if a[x-1] == b[y-1]: 
+                min3 = D[x-1, y-1]
+            else:
+                min3 = D[x-1, y-1] + 1
+            D[coordinates] = np.min([min1, min2, min3])
+
+    return D[m,n]
     
     # ---------------------- Laboratoire 2 - Question 1 - Fin de la section à compléter ------------------
 

@@ -9,7 +9,7 @@ import re
 
 class Fr_En(Dataset):
     """Ensemble de donnees de mots/phrases en francais et anglais."""
-    def __init__(self, filename='fra.txt', n_samp=2000,start=0, samplelen=[7,10]):
+    def __init__(self, filename='Laboratoire2/fra.txt', n_samp=2000,start=0, samplelen=[7,10]):
         # Initialisation des variables
         self.pad_symbol     = pad_symbol = '<pad>'
         self.start_symbol   = start_symbol = '<sos>'
@@ -72,9 +72,20 @@ class Fr_En(Dataset):
         
 
         # ---------------------- Laboratoire 2 - Question 2 - Début de la section à compléter ------------------
-        self.max_len['fr'] = 0
-        self.max_len['en'] = 0
+        self.max_len['fr'] = max([len(i) for i in data['fr'].values()]) + 1 # EOS
+        self.max_len['en'] = max([len(i) for i in data['en'].values()]) + 1 # EOS
 
+        for i in range(len(data['fr'])):
+            buffer = data['fr'][i]
+            buffer.append(stop_symbol)
+            while len(buffer) < self.max_len['fr']:
+                buffer.append(pad_symbol)
+        
+        for i in range(len(data['en'])):
+            buffer = data['en'][i]
+            buffer.append(stop_symbol)
+            while len(buffer) < self.max_len['en']:
+                buffer.append(pad_symbol)
 
         # ---------------------- Laboratoire 2 - Question 2 - Fin de la section à compléter ------------------
 
@@ -99,11 +110,11 @@ class Fr_En(Dataset):
         fr_seq = [self.int2symb['fr'][i] for i in fr_seq]
         en_seq = [self.int2symb['en'][i] for i in en_seq]
         print('Francais: ',' '.join(fr_seq))
-        print('Englais: ', ' '.join(en_seq))
+        print('Anglais: ', ' '.join(en_seq))
 
 
 if __name__ == "__main__":
     print("\nExample de données de la base de données : \n")
-    a = Fr_En('fra.txt')
+    a = Fr_En('Laboratoire2/fra.txt')
     a.visualize(np.random.randint(0,len(a)))
     print('\n')
