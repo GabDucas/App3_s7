@@ -14,15 +14,16 @@ if __name__ == '__main__':
 
     # ---------------- Paramètres et hyperparamètres ----------------#
     force_cpu = False           # Forcer a utiliser le cpu?
-    trainning = True           # Entrainement?
-    test = True                # Test?
+    training = True           # Entrainement?
+    test = False                # Test?
     learning_curves = True     # Affichage des courbes d'entrainement?
     gen_test_images = True     # Génération images test?
     seed = 1                # Pour répétabilité
     n_workers = 0           # Nombre de threads pour chargement des données (mettre à 0 sur Windows)
 
     # TODO
-    n_epochs = 0
+    n_epochs = 5
+    n_samp = 5000
 
     # ---------------- Fin Paramètres et hyperparamètres ----------------#
 
@@ -36,12 +37,12 @@ if __name__ == '__main__':
 
     # Instanciation de l'ensemble de données
     # TODO
-    dataset = HandwrittenWords(n_samp=4000, samplelen=[6,10])
+    dataset = HandwrittenWords('problematique/data_trainval.p')
 
     
     # Séparation de l'ensemble de données (entraînement et validation)
     # TODO
-    dataset_train, dataset_val = torch.utils.data.random_split(dataset, [3000, 1000])
+    dataset_train, dataset_val = torch.utils.data.random_split(dataset, [3500, 1500])
 
     # Instanciation des dataloaders
     # TODO
@@ -56,8 +57,8 @@ if __name__ == '__main__':
         device=device,
         symb2int=dataset.symb2int,
         int2symb=dataset.int2symb,
-        dict_size=dataset.dict_size,
-        maxlen=dataset.max_len
+        dict_size=len(dataset.data),
+        max_len=dataset.max_len_traj
     ).to(device)
     # Initialisation des variables
     # TODO
@@ -65,8 +66,8 @@ if __name__ == '__main__':
     train_loss_list = []
     val_loss_list = []
 
-    if trainning:
-
+    if training:
+        print('in train')
         # Fonction de coût et optimizateur
         # TODO
         criterion = nn.CrossEntropyLoss(ignore_index=dataset.symb2int['<pad>'])

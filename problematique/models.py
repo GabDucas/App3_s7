@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class trajectory2seq(nn.Module):
-    def __init__(self, hidden_dim, n_layers, int2symb, symb2int, dict_size, device, maxlen):
+    def __init__(self, hidden_dim, n_layers, int2symb, symb2int, dict_size, device, max_len):
         super(trajectory2seq, self).__init__()
         # Definition des parametres
         self.hidden_dim = hidden_dim
@@ -17,17 +17,17 @@ class trajectory2seq(nn.Module):
         self.symb2int = symb2int
         self.int2symb = int2symb
         self.dict_size = dict_size
-        self.maxlen = maxlen
+        self.max_len = max_len
 
         # Definition des couches
         # Couches pour rnn
         # TODO
-        self.encoder = nn.GRU(
+        self.encoder_layer = nn.GRU(
             input_size=2,              # coordonnées (x,y)
             hidden_size=hidden_dim,
             num_layers=n_layers,
             batch_first=True,
-            batch_first=False
+            # batch_first=False
         )
 
         self.embedding = nn.Embedding(
@@ -35,7 +35,7 @@ class trajectory2seq(nn.Module):
             embedding_dim=hidden_dim
         )
 
-        self.decoder = nn.GRU(
+        self.decoder_layer = nn.GRU(
             input_size=hidden_dim,
             hidden_size=hidden_dim,
             num_layers=n_layers,
@@ -61,7 +61,7 @@ class trajectory2seq(nn.Module):
         attention = torch.bmm(query, values.permute(0,2,1))
         attention_weights = torch.softmax(attention[:,0,:], dim=1)
 
-        attention_weights_repeat = attention_weights[:,:,None].repeat(1,1,self.n_hidden)
+        attention_weights_repeat = attention_weights[:,:,None].repeat(1,1,self.hidden_dim)
         attention_output = torch.sum(attention_weights_repeat * values, dim=1)
 
         return attention_output, attention_weights

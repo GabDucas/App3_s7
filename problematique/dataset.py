@@ -15,12 +15,11 @@ class HandwrittenWords(Dataset):
         self.stop_symbol    = stop_symbol = '<eos>'
 
         self.data = dict()
-        self.seq_buffers = dict()
+        self.pad_targ = []
+        self.pad_traj = []
         with open(filename, 'rb') as fp:
             self.data = pickle.load(fp)
         
-        print("first word : ", self.data[0][0])
-        print("first trajectory : ", self.data[0][1][0][0], ",", self.data[0][1][1][0])
         # data[x] = (word, (x_trajectory, y_trajectory))
         # data[x][0] = word
         # data[x][1] = (x_trajectory, y_trajectory)
@@ -45,49 +44,49 @@ class HandwrittenWords(Dataset):
 
         # Ajout du padding aux séquences
         # TODO
-        # self.max_len = max([len(i) for i in self.data[:][0]]) + 1 # EOS -- could be hardcoded, 5 max anyway
-        self.max_len = 6 # 5 + EOS
-        print(self.max_len)
+        self.max_len_traj = max([len(item[1][0]) for item in self.data]) + 1
+        self.max_len_word = 6 # 5 + EOS
 
         for i in range(len(self.data)):
-            word = self.data[i][0]
-            buffer = []
+            word, (x, y) = self.data[i]
+
+            # Padding trajectory
+            traj_buffer = np.zeros((self.max_len_traj, 2))
+            actual_len = len(x)
+            traj_buffer[:actual_len, 0] = x
+            traj_buffer[:actual_len, 1] = y
+            traj_buffer[actual_len] = [999, 999] 
+            self.pad_traj.append(torch.tensor(traj_buffer, dtype=torch.float32))
+
+            # Padding target
+            targ_buffer = []
             if word != "<sos>":
                 for symb in word:
-                    buffer.append(self.symb2int[symb])
-            buffer.append(self.symb2int[stop_symbol])
-            while len(buffer) < self.max_len:
-                buffer.append(self.symb2int[pad_symbol])
-            self.seq_buffers[word] = buffer
-
-        # for i in range(len(self.data)):
-        #     word = self.data[i][0]
-        #     buffer = []
-        #     buffer.append(self.symb2int[start_symbol])
-        #     if word != "<sos>":
-        #         for symb in word:
-        #             buffer.append(self.symb2int[symb])
-        #     buffer.append(self.symb2int[stop_symbol])
-        #     while len(buffer) < self.max_len:
-        #         buffer.append(self.symb2int[pad_symbol])
-        #     self.seq_buffers[word] = buffer
+                    targ_buffer.append(self.symb2int[symb])
+            targ_buffer.append(self.symb2int[stop_symbol])
+            while len(targ_buffer) < self.max_len_word:
+                targ_buffer.append(self.symb2int[pad_symbol])
+            self.pad_targ.append(torch.tensor(targ_buffer, dtype=torch.long))
         
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        # TODO
-        return None, None
+        return self.pad_traj[idx], self.pad_targ[idx]
 
     def visualisation(self, idx):
-        # Visualisation des échantillons
-        # TODO (optionel)
-        seq = self.data[idx]
-        # seq = [self.int2symb[i] for i in seq]
-        print('Word : ', seq[0])
-        print('First coordinates : ', seq[1][0][0], ',', seq[1][1][0])
-        print('Symbols : ', self.seq_buffers[seq[0]])
-        print('Int2Symb : ', [self.int2symb[symb] for symb in self.seq_buffers[seq[0]]] )
+        word_str, (x_coords, y_coords) = self.data[idx]
+        target_tensor = self.pad_targ[idx]
+        # .tolist() converts the tensor indices [3, 15, 1, 2...] into a standard Python list
+        target_indices = target_tensor.tolist()
+        symbols = [self.int2symb[symb] for symb in target_indices]
+
+        print(f"--- Sample Index: {idx} ---")
+        print(f"Original Label:  {word_str}")
+        print(f"Symbols:         {symbols}")
+        print(f"Indices:         {target_indices}")
+        print(f"Trajectory Len:  {len(x_coords)} points")
+        print(f"First Coord:     ({x_coords[0]:.2f}, {y_coords[0]:.2f})")
         print('---')
         
 
