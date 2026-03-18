@@ -64,6 +64,7 @@ class HandwrittenWords(Dataset):
                 for symb in word:
                     targ_buffer.append(self.symb2int[symb])
             targ_buffer.append(self.symb2int[stop_symbol])
+
             while len(targ_buffer) < self.max_len_word:
                 targ_buffer.append(self.symb2int[pad_symbol])
             self.pad_targ.append(torch.tensor(targ_buffer, dtype=torch.long))
@@ -89,6 +90,23 @@ class HandwrittenWords(Dataset):
         print(f"First Coord:     ({x_coords[0]:.2f}, {y_coords[0]:.2f})")
         print('---')
         
+
+def indices_to_text(indices_batch, int2symb):
+    """
+    indices_batch: Tensor (batch_size, seq_len)
+    int2symb: dictionnaire int->symbole
+    """
+    words = []
+    for seq in indices_batch:
+        chars = []
+        for idx in seq:
+            symb = int2symb[idx.item()]
+            if symb == '<eos>':
+                break
+            if symb not in ['<pad>', '<sos>']:
+                chars.append(symb)
+        words.append(''.join(chars))
+    return words
 
 if __name__ == "__main__":
     # Code de test pour aider à compléter le dataset

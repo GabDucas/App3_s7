@@ -27,7 +27,6 @@ class trajectory2seq(nn.Module):
             hidden_size=hidden_dim,
             num_layers=n_layers,
             batch_first=True,
-            # batch_first=False
         )
 
         self.embedding = nn.Embedding(
@@ -56,20 +55,34 @@ class trajectory2seq(nn.Module):
         return out, hidden
 
     def attentionModule(self, query, values):
-        query = self.hidden2query(query)
+        #query.shape = (batch_size, 1, hidden_dim)
+        #values.shape = (batch_size, seq_len_in, hidden_dim)
 
+        query = self.hidden2query(query)
+        
+        #values.shape = (batch_size, 1, seq_len_in)
+        #attention.shape = (batch_size, 1, seq_len_in)
         attention = torch.bmm(query, values.permute(0,2,1))
+
         attention_weights = torch.softmax(attention[:,0,:], dim=1)
 
         attention_weights_repeat = attention_weights[:,:,None].repeat(1,1,self.hidden_dim)
         attention_output = torch.sum(attention_weights_repeat * values, dim=1)
 
+        #attention_output  : (batch, hidden_dim)
+        #attention_weights : (batch, seq_len_in)
+
         return attention_output, attention_weights
     
-    def decoderWithAttn(self, encoder_outs, hidden):
-        max_len = self.max_len
+    def decoderWithAttn(self, encoder_outs, hidden, target_seq):
+        #encoder_outs = (batch, seq_len_in, hidden_dim)
+        #hidden = (num_layers, batch, hidden_dim)
+
+        max_len = target_seq.size(1)
+  
         batch_size = hidden.shape[1]
 
+        #vec_in = (batch,1)
         vec_in = torch.full((batch_size,1),
                             self.symb2int['<sos>'],
                             dtype=torch.long).to(self.device)
@@ -85,17 +98,21 @@ class trajectory2seq(nn.Module):
             attention_out, attention_weight_buff = self.attentionModule(buffer, encoder_outs)
             attention_weights[:,:,i] = attention_weight_buff
 
+            #torch.cat... = (batch, hidden) + (batch, hidden) → (batch, hidden×2)
+            #att_combine (batch, hidden×2) → (batch, hidden)
             out = self.att_combine(torch.cat([buffer[:,0,:], attention_out], dim=1))
             out_lin = self.fc(out)
 
             vec_out[:,i,:] = out_lin
-            vec_in = torch.argmax(out_lin.unsqueeze(1), dim=2)
+      
+            vec_in = target_seq[:, i].unsqueeze(1)  
+
 
         return vec_out, hidden, attention_weights
 
-    def forward(self, x):
+    def forward(self, x, target_seq):
         out, h = self.encoder(x)
-        out, hidden, attn = self.decoderWithAttn(out,h)
+        out, hidden, attn = self.decoderWithAttn(out,h, target_seq)
         return out, hidden, attn
     
 

@@ -15,11 +15,12 @@ if __name__ == '__main__':
     # ---------------- Paramètres et hyperparamètres ----------------#
     force_cpu = False           # Forcer a utiliser le cpu?
     training = True           # Entrainement?
-    test = False                # Test?
+    test = True                # Test?
     learning_curves = True     # Affichage des courbes d'entrainement?
     gen_test_images = True     # Génération images test?
     seed = 1                # Pour répétabilité
     n_workers = 0           # Nombre de threads pour chargement des données (mettre à 0 sur Windows)
+    batch_size = 100
 
     # TODO
     n_epochs = 5
@@ -38,16 +39,15 @@ if __name__ == '__main__':
     # Instanciation de l'ensemble de données
     # TODO
     dataset = HandwrittenWords('problematique/data_trainval.p')
-
     
     # Séparation de l'ensemble de données (entraînement et validation)
     # TODO
-    dataset_train, dataset_val = torch.utils.data.random_split(dataset, [3500, 1500])
+    dataset_train, dataset_val, dataset_test = torch.utils.data.random_split(dataset, [3500, 1000, 500])
 
     # Instanciation des dataloaders
     # TODO
-    dataload_train = DataLoader(dataset_train, batch_size=100, shuffle=True, num_workers=n_workers)
-    dataload_val = DataLoader(dataset_val, batch_size=100, shuffle=False, num_workers=n_workers)
+    dataload_train = DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=n_workers)
+    dataload_val = DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=n_workers)
 
     # Instanciation du model
     # TODO
@@ -57,7 +57,7 @@ if __name__ == '__main__':
         device=device,
         symb2int=dataset.symb2int,
         int2symb=dataset.int2symb,
-        dict_size=len(dataset.data),
+        dict_size=len(dataset.symb2int) ,
         max_len=dataset.max_len_traj
     ).to(device)
     # Initialisation des variables
@@ -65,7 +65,9 @@ if __name__ == '__main__':
 
     train_loss_list = []
     val_loss_list = []
-
+    best_val_loss = float('inf')
+    running_loss_val = 0
+    
     if training:
         print('in train')
         # Fonction de coût et optimizateur
@@ -88,35 +90,56 @@ if __name__ == '__main__':
 
                 optimizer.zero_grad() 
 
-                output, hidden, attn = model(input_seq)
+                output, hidden, attn = model(input_seq,  target_seq)
+                #output = (batch_size, seq_length, vocab_size)
 
-                loss = criterion(output.view((-1, model.dict_size)), target_seq.view(-1))
+                loss = criterion(
+                    output.reshape(-1, model.dict_size),
+                    target_seq.reshape(-1)
+                )
                 
                 loss.backward() 
                 optimizer.step() 
 
                 running_loss_train += loss.item()
+
+
+                print(
+                        'Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f}'.format(
+                            epoch,
+                            n_epochs,
+                            batch_idx * batch_size,
+                            len(dataload_train.dataset),
+                            100. * batch_idx * batch_size / len(dataload_train.dataset),
+                            running_loss_train / (batch_idx + 1)
+                        ),
+                        end='\r'
+                    )
+                
             train_loss = running_loss_train / len(dataload_train)
             # Validation
             # TODO
 
             model.eval()
             running_loss_val = 0
-            for batch_idx, data in enumerate(dataload_val):
-                with torch.no_grad:
+
+            with torch.no_grad():
+                for batch_idx, data in enumerate(dataload_val):
                     input_seq, target_seq = data
-                    input_seq = input_seq.to(device).long()
+                    input_seq = input_seq.to(device).float()
                     target_seq = target_seq.to(device).long()
 
-                    loss = criterion(
-                    output.view(-1, dataset.dict_size),
-                    target_seq.view(-1)
-                )
+                    # Forward
+                    output, hidden, attn = model(input_seq, target_seq) 
 
+                    # Loss
+                    loss = criterion(output.view(-1, model.dict_size),
+                                    target_seq.view(-1))
                     running_loss_val += loss.item()
 
-                    val_loss = running_loss_val / len(dataload_val)
-                    
+            val_loss = running_loss_val / len(dataload_val)
+            print(f"\nValidation - Epoch {epoch}: Loss={val_loss:.6f}")   
+
             # Ajouter les loss aux listes
             # TODO
             train_loss_list.append(train_loss)
@@ -124,33 +147,52 @@ if __name__ == '__main__':
             # Enregistrer les poids
             # TODO
 
-            ###################CHATGPT?????????#############################
             if epoch == 1 or val_loss < best_val_loss:
                 best_val_loss = val_loss
                 torch.save(model.state_dict(), "best_model.pt")
-            ################################################################
 
             # Affichage
             if learning_curves:
-                plt.figure()
+                plt.clf()
                 plt.plot(train_loss_list, label="Train")
                 plt.plot(val_loss_list, label="Validation")
-                plt.xlabel("Epoch")
-                plt.ylabel("Loss")
                 plt.legend()
-                plt.title("Learning Curves")
-                plt.show()
+                plt.pause(0.01)
+    plt.show()
 
     if test:
+        total_loss = 0
+
+        criterion = nn.CrossEntropyLoss(ignore_index=dataset.symb2int['<pad>'])
+
         # Évaluation
         # TODO
-        
+        model.load_state_dict(torch.load("best_model.pt", map_location=device))
+        model.eval() 
         # Charger les données de tests
         # TODO
+        dataload_test = DataLoader(dataset_test, batch_size=batch_size, shuffle=False, num_workers=n_workers)
+
+
+        with torch.no_grad():  # Pas de calcul de gradients
+            for batch_idx, data in enumerate(dataload_test):
+                # Formatage des données
+                input_seq, target_seq = data
+                input_seq = input_seq.to(device).float()
+                target_seq = target_seq.to(device).long()
+
+                # Forward pass
+                output, hidden, attn = model(input_seq, target_seq) 
+
+                # Loss
+                loss = criterion(output.view(-1, model.dict_size),
+                                 target_seq.view(-1))
+                total_loss += loss.item()
 
         # Affichage de l'attention
         # TODO (si nécessaire)
 
+        
         # Affichage des résultats de test
         # TODO
         
