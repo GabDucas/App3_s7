@@ -75,7 +75,7 @@ if __name__ == '__main__':
         # Fonction de coût et optimizateur
         # TODO
         criterion = nn.CrossEntropyLoss(ignore_index=dataset.symb2int['<pad>'])
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.learning_rate)
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
         for epoch in range(1, n_epochs + 1):
             # Entraînement
