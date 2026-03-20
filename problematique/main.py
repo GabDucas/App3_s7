@@ -21,11 +21,11 @@ if __name__ == '__main__':
     gen_test_images = True     # Génération images test?
     seed = 1                # Pour répétabilité
     n_workers = 0           # Nombre de threads pour chargement des données (mettre à 0 sur Windows)
-    batch_size = 100
-    learning_rate = 0.0005
+    batch_size = 64
+    learning_rate = 0.001
 
     # TODO
-    n_epochs = 40
+    n_epochs = 50
     n_samp = 5000
 
     # ---------------- Fin Paramètres et hyperparamètres ----------------#
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     # Instanciation du model
     # TODO
     model = trajectory2seq(
-        hidden_dim=64,
+        hidden_dim=16,
         n_layers=1,
         device=device,
         symb2int=dataset.symb2int,
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     ).to(device)
     # Initialisation des variables
     # TODO
-
+    
     train_loss_list = []
     val_loss_list = []
     best_val_loss = float('inf')
@@ -75,7 +75,7 @@ if __name__ == '__main__':
         # Fonction de coût et optimizateur
         # TODO
         criterion = nn.CrossEntropyLoss(ignore_index=dataset.symb2int['<pad>'])
-        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
 
         for epoch in range(1, n_epochs + 1):
             # Entraînement
@@ -92,7 +92,9 @@ if __name__ == '__main__':
 
                 optimizer.zero_grad() 
 
-                output, hidden, attn = model(input_seq,  target_seq)
+                teacher_forcing_ratio = max(0.5, 1.0 - epoch * 0.01)
+
+                output, hidden, attn = model(input_seq, target_seq, teacher_forcing_ratio)
                 #output = (batch_size, seq_length, vocab_size)
 
                 loss = criterion(
@@ -198,7 +200,7 @@ if __name__ == '__main__':
         
         # Affichage des résultats de test
          
-        for k in range(min(3, input_seq.size(0))):
+        for k in range(min(10, input_seq.size(0))):
             points = input_seq[k].cpu().numpy()
             true_tokens = target_seq[k].cpu().numpy()
             pred_tokens = pred_seq[k].cpu().numpy()

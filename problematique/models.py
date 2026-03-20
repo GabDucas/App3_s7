@@ -27,7 +27,8 @@ class trajectory2seq(nn.Module):
             hidden_size=hidden_dim,
             num_layers=n_layers,
             batch_first=True,
-            bidirectional=True
+            bidirectional=True,
+            dropout=0.3 if n_layers > 1 else 0
         )
 
         self.embedding = nn.Embedding(
@@ -39,8 +40,11 @@ class trajectory2seq(nn.Module):
             input_size=hidden_dim,
             hidden_size=2*hidden_dim,
             num_layers=n_layers,
-            batch_first=True
+            batch_first=True,
+            dropout=0.3 if n_layers > 1 else 0
         )
+
+        self.dropout = nn.Dropout(0.3)
 
         # Couches pour attention
         # TODO
@@ -53,8 +57,7 @@ class trajectory2seq(nn.Module):
 
     def encoder(self, x):
         out, hidden = self.encoder_layer(x)
-        hidden = torch.cat((hidden[0], hidden[1]), dim=1)  # (batch, 2H)
-        hidden = hidden.unsqueeze(0) 
+        hidden = torch.cat((hidden[0], hidden[1]), dim=1).unsqueeze(0)  # (batch, 2H)
         return out, hidden
 
     def attentionModule(self, query, values):
@@ -77,12 +80,11 @@ class trajectory2seq(nn.Module):
 
         return attention_output, attention_weights
     
-    def decoderWithAttn(self, encoder_outs, hidden, target_seq):
+    def decoderWithAttn(self, encoder_outs, hidden, target_seq, teacher_forcing_ratio=0.5):
         #encoder_outs = (batch, seq_len_in, hidden_dim)
         #hidden = (num_layers, batch, hidden_dim)
 
         max_len = target_seq.size(1)
-  
         batch_size = hidden.shape[1]
 
         #vec_in = (batch,1)
@@ -94,8 +96,7 @@ class trajectory2seq(nn.Module):
         attention_weights = torch.zeros((batch_size, encoder_outs.shape[1], max_len)).to(self.device)
 
         for i in range(max_len):
-
-            embedded = self.embedding(vec_in)
+            embedded = self.dropout(self.embedding(vec_in))
             buffer, hidden = self.decoder_layer(embedded, hidden)
 
             attention_out, attention_weight_buff = self.attentionModule(buffer, encoder_outs)
@@ -104,18 +105,27 @@ class trajectory2seq(nn.Module):
             #torch.cat... = (batch, hidden) + (batch, hidden) → (batch, hidden×2)
             #att_combine (batch, hidden×2) → (batch, hidden)
             out = self.att_combine(torch.cat([buffer[:,0,:], attention_out], dim=1))
+            out = self.dropout(out)
+
             out_lin = self.fc(out)
 
             vec_out[:,i,:] = out_lin
       
-            vec_in = target_seq[:, i].unsqueeze(1)  
+            use_teacher = (torch.rand(1).item() < teacher_forcing_ratio) and self.training
+            if use_teacher:
+                vec_in = target_seq[:, i].unsqueeze(1)
+            else:
+                vec_in = out_lin.argmax(dim=1).unsqueeze(1)  # prédiction du modèle
 
 
         return vec_out, hidden, attention_weights
 
-    def forward(self, x, target_seq):
+    def forward(self, x, target_seq, teacher_forcing_ratio=0.5):
         out, h = self.encoder(x)
-        out, hidden, attn = self.decoderWithAttn(out,h, target_seq)
+        # Pas de teacher forcing à l'inférence (model.eval())
+
+        ratio = teacher_forcing_ratio if self.training else 0.0
+        out, hidden, attn = self.decoderWithAttn(out, h, target_seq, ratio)
         return out, hidden, attn
     
 
