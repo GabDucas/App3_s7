@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class trajectory2seq(nn.Module):
-    def __init__(self, hidden_dim, n_layers, int2symb, symb2int, dict_size, device, max_len):
+    def __init__(self, hidden_dim, n_layers, int2symb, symb2int, dict_size, device, max_len, bidirectional=False, attention=False):
         super(trajectory2seq, self).__init__()
         # Definition des parametres
         self.hidden_dim = hidden_dim
@@ -18,6 +18,8 @@ class trajectory2seq(nn.Module):
         self.int2symb = int2symb
         self.dict_size = dict_size
         self.max_len = max_len
+        self.bidirectional = bidirectional
+        self.attention = attention
 
         # Definition des couches
         # Couches pour rnn
@@ -27,7 +29,7 @@ class trajectory2seq(nn.Module):
             hidden_size=hidden_dim,
             num_layers=n_layers,
             batch_first=True,
-            bidirectional=True,
+            bidirectional=self.bidirectional,
             dropout=0.3 if n_layers > 1 else 0
         )
 
@@ -36,20 +38,33 @@ class trajectory2seq(nn.Module):
             embedding_dim=hidden_dim
         )
 
-        self.decoder_layer = nn.GRU(
-            input_size=hidden_dim,
-            hidden_size=2*hidden_dim,
-            num_layers=n_layers,
-            batch_first=True,
-            dropout=0.3 if n_layers > 1 else 0
-        )
+        if self.bidirectional:
+            self.decoder_layer = nn.GRU(
+                input_size=hidden_dim,
+                hidden_size=2*hidden_dim,
+                num_layers=n_layers,
+                batch_first=True,
+                dropout=0.3 if n_layers > 1 else 0
+            )
+        else:
+            self.decoder_layer = nn.GRU(
+                input_size=hidden_dim,
+                hidden_size=hidden_dim,
+                num_layers=n_layers,
+                batch_first=True,
+                dropout=0.3 if n_layers > 1 else 0
+            )
 
         self.dropout = nn.Dropout(0.3)
 
         # Couches pour attention
         # TODO
-        self.att_combine = nn.Linear(4*hidden_dim, hidden_dim)
-        self.hidden2query = nn.Linear(2*hidden_dim, 2*hidden_dim)
+        if bidirectional:
+            self.hidden2query = nn.Linear(2*hidden_dim, 2*hidden_dim)
+            self.att_combine = nn.Linear(4*hidden_dim, hidden_dim)
+        else:
+            self.hidden2query = nn.Linear(hidden_dim, hidden_dim)
+            self.att_combine = nn.Linear(2*hidden_dim, hidden_dim)
 
         # Couche dense pour la sortie
         # TODO
@@ -57,7 +72,8 @@ class trajectory2seq(nn.Module):
 
     def encoder(self, x):
         out, hidden = self.encoder_layer(x)
-        hidden = torch.cat((hidden[0], hidden[1]), dim=1).unsqueeze(0)  # (batch, 2H)
+        if self.bidirectional:
+            hidden = torch.cat((hidden[0], hidden[1]), dim=1).unsqueeze(0)  # (batch, 2H)
         return out, hidden
 
     def attentionModule(self, query, values):
@@ -71,8 +87,10 @@ class trajectory2seq(nn.Module):
         attention = torch.bmm(query, values.permute(0,2,1))
 
         attention_weights = torch.softmax(attention[:,0,:], dim=1)
-
-        attention_weights_repeat = attention_weights[:,:,None].repeat(1,1,2*self.hidden_dim)
+        if self.bidirectional:
+            attention_weights_repeat = attention_weights[:,:,None].repeat(1,1,2*self.hidden_dim)
+        else:
+            attention_weights_repeat = attention_weights[:,:,None].repeat(1,1,self.hidden_dim)
         attention_output = torch.sum(attention_weights_repeat * values, dim=1)
 
         #attention_output  : (batch, hidden_dim)
@@ -93,29 +111,43 @@ class trajectory2seq(nn.Module):
                             dtype=torch.long).to(self.device)
 
         vec_out = torch.zeros((batch_size, max_len, self.dict_size)).to(self.device)
-        attention_weights = torch.zeros((batch_size, encoder_outs.shape[1], max_len)).to(self.device)
+        if self.attention:
+            attention_weights = torch.zeros((batch_size, encoder_outs.shape[1], max_len)).to(self.device)
 
-        for i in range(max_len):
-            embedded = self.dropout(self.embedding(vec_in))
-            buffer, hidden = self.decoder_layer(embedded, hidden)
+            for i in range(max_len):
+                embedded = self.dropout(self.embedding(vec_in))
+                buffer, hidden = self.decoder_layer(embedded, hidden)
 
-            attention_out, attention_weight_buff = self.attentionModule(buffer, encoder_outs)
-            attention_weights[:,:,i] = attention_weight_buff
+                attention_out, attention_weight_buff = self.attentionModule(buffer, encoder_outs)
+                attention_weights[:,:,i] = attention_weight_buff
 
-            #torch.cat... = (batch, hidden) + (batch, hidden) → (batch, hidden×2)
-            #att_combine (batch, hidden×2) → (batch, hidden)
-            out = self.att_combine(torch.cat([buffer[:,0,:], attention_out], dim=1))
-            out = self.dropout(out)
+                #torch.cat... = (batch, hidden) + (batch, hidden) → (batch, hidden×2)
+                #att_combine (batch, hidden×2) → (batch, hidden)
+                out = self.att_combine(torch.cat([buffer[:,0,:], attention_out], dim=1))
+                out = self.dropout(out)
 
-            out_lin = self.fc(out)
+                out_lin = self.fc(out)
 
-            vec_out[:,i,:] = out_lin
-      
-            use_teacher = (torch.rand(1).item() < teacher_forcing_ratio) and self.training
-            if use_teacher:
-                vec_in = target_seq[:, i].unsqueeze(1)
-            else:
-                vec_in = out_lin.argmax(dim=1).unsqueeze(1)  # prédiction du modèle
+                vec_out[:,i,:] = out_lin
+        
+                use_teacher = (torch.rand(1).item() < teacher_forcing_ratio) and self.training
+                if use_teacher:
+                    vec_in = target_seq[:, i].unsqueeze(1)
+                else:
+                    vec_in = out_lin.argmax(dim=1).unsqueeze(1)  # prédiction du modèle
+        else: 
+            for i in range(max_len):
+                attention_weights = None
+                embedded = self.dropout(self.embedding(vec_in))
+                out, hidden = self.decoder_layer(embedded, hidden)
+                out_lin = self.fc(out[:,0,:])
+                vec_out[:,i,:] = out_lin
+
+                use_teacher = (torch.rand(1).item() < teacher_forcing_ratio) and self.training
+                if use_teacher:
+                    vec_in = target_seq[:, i].unsqueeze(1)
+                else:
+                    vec_in = out_lin.argmax(dim=1).unsqueeze(1)  # prédiction du modèle
 
 
         return vec_out, hidden, attention_weights

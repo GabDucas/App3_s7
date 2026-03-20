@@ -51,6 +51,8 @@ class HandwrittenWords(Dataset):
 
         for i in range(len(self.data)):
             word, (x, y) = self.data[i]
+            x = (x - np.mean(x)) / np.std(x)  # Normalisation
+            y = (y - np.mean(y)) / np.std(y)
 
             # Padding trajectory
             traj_buffer = np.zeros((self.max_len_traj, 2))
@@ -76,7 +78,18 @@ class HandwrittenWords(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return self.pad_traj[idx], self.pad_targ[idx]
+        traj = self.pad_traj[idx]  # Shape: [seq_len, 2]
+        target = self.pad_targ[idx]
+
+        # Scaling aléatoire
+        scale = torch.empty(1).uniform_(0.95, 1.05).item()
+        traj = traj * scale
+        
+        # Ajout de bruit gaussien
+        noise = torch.randn_like(traj) * 0.002
+        traj = traj + noise
+
+        return traj, target
 
     def visualisation(self, idx):
         word_str, (x_coords, y_coords) = self.data[idx]

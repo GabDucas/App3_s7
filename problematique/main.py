@@ -22,10 +22,18 @@ if __name__ == '__main__':
     seed = 1                # Pour répétabilité
     n_workers = 0           # Nombre de threads pour chargement des données (mettre à 0 sur Windows)
     batch_size = 64
-    learning_rate = 0.001
+    learning_rate = 0.004
+    bidirectional = False
+    attention = True
+
+    if bidirectional:
+        hidden_dim = 16
+    else:
+        hidden_dim = 32
+    n_layers = 1
 
     # TODO
-    n_epochs = 50
+    n_epochs = 100
     n_samp = 5000
 
     # ---------------- Fin Paramètres et hyperparamètres ----------------#
@@ -54,13 +62,15 @@ if __name__ == '__main__':
     # Instanciation du model
     # TODO
     model = trajectory2seq(
-        hidden_dim=16,
+        hidden_dim=hidden_dim,
         n_layers=1,
         device=device,
         symb2int=dataset.symb2int,
         int2symb=dataset.int2symb,
         dict_size=len(dataset.symb2int) ,
-        max_len=dataset.max_len_traj
+        max_len=dataset.max_len_traj,
+        bidirectional=bidirectional,
+        attention=attention
     ).to(device)
     # Initialisation des variables
     # TODO
@@ -92,7 +102,7 @@ if __name__ == '__main__':
 
                 optimizer.zero_grad() 
 
-                teacher_forcing_ratio = max(0.5, 1.0 - epoch * 0.01)
+                teacher_forcing_ratio = max(0.0, 1.0 - epoch * 0.01)
 
                 output, hidden, attn = model(input_seq, target_seq, teacher_forcing_ratio)
                 #output = (batch_size, seq_length, vocab_size)
