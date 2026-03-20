@@ -21,8 +21,8 @@ if __name__ == '__main__':
     gen_test_images = True     # Génération images test?
     seed = 1                # Pour répétabilité
     n_workers = 0           # Nombre de threads pour chargement des données (mettre à 0 sur Windows)
-    batch_size = 40
-    learning_rate = 0.0001
+    batch_size = 100
+    learning_rate = 0.0005
 
     # TODO
     n_epochs = 40
@@ -160,7 +160,7 @@ if __name__ == '__main__':
                 plt.plot(val_loss_list, label="Validation")
                 plt.legend()
                 plt.pause(0.01)
-    plt.show()
+    plt.savefig("learning_curve.png") 
 
     if test:
         total_loss = 0
@@ -209,7 +209,7 @@ if __name__ == '__main__':
             plt.figure()
             plt.plot(points[:,0], points[:,1])
             plt.title(f"Vrai: {true_text} | Prédit: {pred_text}")
-            plt.show()
+            plt.savefig(f"test_results_{k}.png")
  
         # TODO
         
