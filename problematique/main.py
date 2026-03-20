@@ -10,17 +10,6 @@ from models import *
 from dataset import *
 from metrics import *
 
-def visualisation(idx, data, prediction):
-    word_str, (x, y) = data.data[idx]
-    
-    plt.figure(figsize=(8, 4))
-    plt.plot(x, y, marker='o', linestyle='-', markersize=2, color='blue')
-    
-    plt.title(f"Target: {word_str} - Prediction: {prediction}")
-    plt.xlabel("X Coordinate")
-    plt.ylabel("Y Coordinate")
-    plt.grid(True, linestyle='--', alpha=0.6)
-    plt.show()
 
 if __name__ == '__main__':
 
@@ -200,14 +189,27 @@ if __name__ == '__main__':
                 loss = criterion(output.view(-1, model.dict_size),
                                  target_seq.view(-1))
                 total_loss += loss.item()
+                pred_seq = torch.argmax(output, dim=2)
 
         # Affichage de l'attention
         # TODO (si nécessaire)
 
         
         # Affichage des résultats de test
-        for i in range(2):
-            visualisation(np.random.randint(0, len(a)), a, prediction="TODO") # TODO: remplacer par la prédiction du modèle
+         
+        for k in range(min(3, input_seq.size(0))):
+            points = input_seq[k].cpu().numpy()
+            true_tokens = target_seq[k].cpu().numpy()
+            pred_tokens = pred_seq[k].cpu().numpy()
+            true_tokens = [t for t in true_tokens if t != dataset.symb2int['<pad>']]
+            pred_tokens = [t for t in pred_tokens if t != dataset.symb2int['<pad>']]
+            true_text = "".join([dataset.int2symb[t] for t in true_tokens])
+            pred_text = "".join([dataset.int2symb[t] for t in pred_tokens])
+            plt.figure()
+            plt.plot(points[:,0], points[:,1])
+            plt.title(f"Vrai: {true_text} | Prédit: {pred_text}")
+            plt.show()
+ 
         # TODO
         
         # Affichage de la matrice de confusion
