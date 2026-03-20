@@ -20,11 +20,13 @@ class HandwrittenWords(Dataset):
         with open(filename, 'rb') as fp:
             self.data = pickle.load(fp)
         
+        # ===============================================
         # data[x] = (word, (x_trajectory, y_trajectory))
         # data[x][0] = word
         # data[x][1] = (x_trajectory, y_trajectory)
         # data[x][1][0] = x_trajectory array
         # data[x][1][1] = y_trajectory array
+        # ===============================================
 
         # Extraction des symboles
         # TODO
@@ -53,9 +55,10 @@ class HandwrittenWords(Dataset):
             # Padding trajectory
             traj_buffer = np.zeros((self.max_len_traj, 2))
             actual_len = len(x)
+            traj_buffer[:,0] = x[actual_len-1]
+            traj_buffer[:,1] = y[actual_len-1]
             traj_buffer[:actual_len, 0] = x
             traj_buffer[:actual_len, 1] = y
-            traj_buffer[actual_len] = [999, 999] 
             self.pad_traj.append(torch.tensor(traj_buffer, dtype=torch.float32))
 
             # Padding target
@@ -91,22 +94,22 @@ class HandwrittenWords(Dataset):
         print('---')
         
 
-def indices_to_text(indices_batch, int2symb):
-    """
-    indices_batch: Tensor (batch_size, seq_len)
-    int2symb: dictionnaire int->symbole
-    """
-    words = []
-    for seq in indices_batch:
-        chars = []
-        for idx in seq:
-            symb = int2symb[idx.item()]
-            if symb == '<eos>':
-                break
-            if symb not in ['<pad>', '<sos>']:
-                chars.append(symb)
-        words.append(''.join(chars))
-    return words
+# def indices_to_text(indices_batch, int2symb):
+#     """
+#     indices_batch: Tensor (batch_size, seq_len)
+#     int2symb: dictionnaire int->symbole
+#     """
+#     words = []
+#     for seq in indices_batch:
+#         chars = []
+#         for idx in seq:
+#             symb = int2symb[idx.item()]
+#             if symb == '<eos>':
+#                 break
+#             if symb not in ['<pad>', '<sos>']:
+#                 chars.append(symb)
+#         words.append(''.join(chars))
+#     return words
 
 if __name__ == "__main__":
     # Code de test pour aider à compléter le dataset

@@ -31,9 +31,8 @@ def confusion_matrix(true, pred, ignore=[]):
     confusion_matrix = np.zeros((len(set(true)), len(set(pred))), dtype=int)
 
     for i in range(len(true)):
-        for j in range(len(pred)):
-            if true[i] == pred[j] and true[i] not in ignore:
-                confusion_matrix[true[i], pred[j]] += 1
+        if  true[i] not in ignore:
+            confusion_matrix[true[i], pred[i]] += 1
 
        
     return confusion_matrix

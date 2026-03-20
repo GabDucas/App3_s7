@@ -10,6 +10,18 @@ from models import *
 from dataset import *
 from metrics import *
 
+def visualisation(idx, data, prediction):
+    word_str, (x, y) = data.data[idx]
+    
+    plt.figure(figsize=(8, 4))
+    plt.plot(x, y, marker='o', linestyle='-', markersize=2, color='blue')
+    
+    plt.title(f"Target: {word_str} - Prediction: {prediction}")
+    plt.xlabel("X Coordinate")
+    plt.ylabel("Y Coordinate")
+    plt.grid(True, linestyle='--', alpha=0.6)
+    plt.show()
+
 if __name__ == '__main__':
 
     # ---------------- Paramètres et hyperparamètres ----------------#
@@ -23,7 +35,7 @@ if __name__ == '__main__':
     batch_size = 100
 
     # TODO
-    n_epochs = 5
+    n_epochs = 15
     n_samp = 5000
 
     # ---------------- Fin Paramètres et hyperparamètres ----------------#
@@ -194,6 +206,8 @@ if __name__ == '__main__':
 
         
         # Affichage des résultats de test
+        for i in range(2):
+            visualisation(np.random.randint(0, len(a)), a, prediction="TODO") # TODO: remplacer par la prédiction du modèle
         # TODO
         
         # Affichage de la matrice de confusion
