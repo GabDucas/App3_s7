@@ -21,10 +21,11 @@ if __name__ == '__main__':
     gen_test_images = True     # Génération images test?
     seed = 1                # Pour répétabilité
     n_workers = 0           # Nombre de threads pour chargement des données (mettre à 0 sur Windows)
-    batch_size = 100
+    batch_size = 40
+    learning_rate = 0.0001
 
     # TODO
-    n_epochs = 15
+    n_epochs = 40
     n_samp = 5000
 
     # ---------------- Fin Paramètres et hyperparamètres ----------------#
@@ -74,7 +75,7 @@ if __name__ == '__main__':
         # Fonction de coût et optimizateur
         # TODO
         criterion = nn.CrossEntropyLoss(ignore_index=dataset.symb2int['<pad>'])
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.learning_rate)
 
         for epoch in range(1, n_epochs + 1):
             # Entraînement
