@@ -26,13 +26,14 @@ def edit_distance(a,b):
 
     return D[m,n]
 
-def confusion_matrix(true, pred, ignore=[]):
-
-    confusion_matrix = np.zeros((len(set(true)), len(set(pred))), dtype=int)
+def confusion_matrix(true, pred, num_classes, ignore=[]):
+    # Create a matrix big enough for ALL possible dictionary indices
+    cm = np.zeros((num_classes, num_classes), dtype=int)
 
     for i in range(len(true)):
-        if  true[i] not in ignore:
-            confusion_matrix[true[i], pred[i]] += 1
-
-       
-    return confusion_matrix
+        if true[i] not in ignore:
+            # Prevents crashes if prediction somehow outputs a weird number
+            if true[i] < num_classes and pred[i] < num_classes:
+                cm[true[i], pred[i]] += 1
+                
+    return cm

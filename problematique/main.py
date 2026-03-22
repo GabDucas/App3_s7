@@ -2,6 +2,7 @@
 # Auteur: Jean-Samuel Lauzon et  Jonathan Vincent
 # Hivers 2021
 
+import seaborn as sns
 import torch
 from torch import nn
 import numpy as np
@@ -227,5 +228,35 @@ if __name__ == '__main__':
         
         # Affichage de la matrice de confusion
         # TODO
+        # ... inside your `with torch.no_grad():` test loop ...
+        
+        # 1. Flatten the tensors directly (much cleaner than nested list loops)
+        true_flat = target_seq.view(-1).cpu().tolist()
+        pred_flat = pred_seq.view(-1).cpu().tolist()
 
+        # 2. Setup the variables for YOUR function
+        num_classes = len(dataset.symb2int)
+        ignore_list = [dataset.symb2int['<pad>'], dataset.symb2int['<eos>'], dataset.symb2int['<sos>']]
+
+        # 3. Call your fixed function
+        confusion = confusion_matrix(true_flat, pred_flat, num_classes, ignore=ignore_list)
+
+        # 4. Filter the matrix for plotting (Remove the ignored rows/cols so they don't show up empty)
+        # We find which indices are NOT in the ignore list
+        valid_idx = [i for i in range(num_classes) if i not in ignore_list]
+        
+        # Keep only the valid rows and columns
+        clean_matrix = confusion[valid_idx][:, valid_idx]
+        
+        # Get the matching characters for the labels
+        clean_labels = [dataset.int2symb[i] for i in valid_idx]
+
+        # 5. Plot
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(clean_matrix, annot=True, fmt="d", cmap="Blues", 
+                    xticklabels=clean_labels, yticklabels=clean_labels)
+        plt.ylabel('Actual Character')
+        plt.xlabel('Predicted Character')
+        plt.title("Character-Level Confusion Matrix")
+        plt.savefig("confusion_matrix.png")
         pass
