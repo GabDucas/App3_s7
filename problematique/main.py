@@ -34,7 +34,7 @@ if __name__ == '__main__':
     n_layers = 1
 
     # TODO
-    n_epochs = 100
+    n_epochs = 140
     n_samp = 5000
 
     # ---------------- Fin Paramètres et hyperparamètres ----------------#
@@ -188,7 +188,8 @@ if __name__ == '__main__':
         # TODO
         dataload_test = DataLoader(dataset_test, batch_size=batch_size, shuffle=False, num_workers=n_workers)
 
-
+        cmpt = 0
+        edit_distances = []
         with torch.no_grad():  # Pas de calcul de gradients
             for batch_idx, data in enumerate(dataload_test):
                 # Formatage des données
@@ -204,6 +205,17 @@ if __name__ == '__main__':
                                  target_seq.view(-1))
                 total_loss += loss.item()
                 pred_seq = torch.argmax(output, dim=2)
+                cmpt += 1
+                for true_array, pred_array in zip(target_seq, pred_seq):
+                    t_chars = [dataset.int2symb[t.item()] for t in true_array if t.item() not in [dataset.symb2int['<pad>'], dataset.symb2int['<eos>']]]
+                    p_chars = [dataset.int2symb[p.item()] for p in pred_array if p.item() not in [dataset.symb2int['<pad>'], dataset.symb2int['<eos>']]]
+
+                    t_text = "".join(t_chars)
+                    p_text = "".join(p_chars)
+                    
+                    edit_distances.append(edit_distance(t_text, p_text))
+        edit_distance = np.mean(edit_distances)
+        print(f"Average Edit Distance: {edit_distance:.4f}")
 
         # Affichage de l'attention
         # TODO (si nécessaire)
@@ -211,12 +223,12 @@ if __name__ == '__main__':
         
         # Affichage des résultats de test
          
-        for k in range(min(10, input_seq.size(0))):
+        for k in range(min(3, input_seq.size(0))):
             points = input_seq[k].cpu().numpy()
             true_tokens = target_seq[k].cpu().numpy()
             pred_tokens = pred_seq[k].cpu().numpy()
-            true_tokens = [t for t in true_tokens if t != dataset.symb2int['<pad>']]
-            pred_tokens = [t for t in pred_tokens if t != dataset.symb2int['<pad>']]
+            true_tokens = [t for t in true_tokens if t != dataset.symb2int['<pad>'] and t != dataset.symb2int['<eos>']]
+            pred_tokens = [t for t in pred_tokens if t != dataset.symb2int['<pad>'] and t != dataset.symb2int['<eos>']]
             true_text = "".join([dataset.int2symb[t] for t in true_tokens])
             pred_text = "".join([dataset.int2symb[t] for t in pred_tokens])
             plt.figure()
@@ -225,7 +237,6 @@ if __name__ == '__main__':
             plt.savefig(f"test_results_{k}.png")
  
         # TODO
-        
         # Affichage de la matrice de confusion
         # TODO
         # ... inside your `with torch.no_grad():` test loop ...
