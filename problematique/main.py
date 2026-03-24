@@ -58,12 +58,16 @@ if __name__ == '__main__':
     attention = True
 
     
-    n_epochs = 125
     n_samp = 5000
-    learning_rate = 0.006
+    # n_epochs = 150
+    # learning_rate = 0.004
+    n_epochs = 70
+    learning_rate = 0.008
     n_layers = 1
-    hidden_dim = 25
-    # hidden_dim = 16 # (for bidirectional)
+    if bidirectional:
+        hidden_dim = 8//n_layers
+    else:
+        hidden_dim = 28//n_layers
 
     # ---------------- Fin Paramètres et hyperparamètres ----------------#
 
