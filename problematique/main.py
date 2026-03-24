@@ -13,53 +13,34 @@ from metrics import *
 
 def plot_trajectory_attention(points, attention_matrix, predicted_chars, k):
     """
-    Affiche l'attention du modèle sur une trajectoire 2D.
-    
-    Arguments:
-    - points: numpy array de dimension (T, 2) contenant les (x, y) de la trajectoire.
-    - attention_matrix: numpy array de dimension (N, T) où N est la longueur du mot.
-    - predicted_chars: liste de N caractères (ex: ['a', 'r', 'g', 'u', 's', '<eos>']).
+    Affiche l'attention
     """
     N = len(predicted_chars)
-    
-    # Créer une figure avec N sous-graphiques (un par caractère)
     fig, axes = plt.subplots(N, 1, figsize=(6, 1.2 * N))
-    
-    # Sécurité au cas où le modèle ne prédit qu'un seul caractère
+
     if N == 1:
         axes = [axes]
         
     for i in range(N):
         ax = axes[i]
-        
-        # 1. Afficher la trajectoire de base en gris pâle (le fond)
         ax.plot(points[:, 0], points[:, 1], color='#e0e0e0', linewidth=2.5, zorder=1)
-        
-        # 2. Récupérer les poids d'attention pour le caractère 'i'
         weights = attention_matrix[i]
-        
-        # Optionnel : On normalise les poids pour que le point le plus "attendu" soit 100% noir
+
         if np.max(weights) > 0:
             weights = weights / np.max(weights)
-            
-        # Créer un tableau RGBA (Noir : 0,0,0, avec opacité variable selon le poids)
+
         rgba_colors = np.zeros((len(points), 4))
         rgba_colors[:, 3] = np.clip(weights, 0, 1) # Canal Alpha
-        
-        # Superposer les points d'attention
+
         ax.scatter(points[:, 0], points[:, 1], color=rgba_colors, s=20, zorder=2)
-        
-        # 3. Mise en forme esthétique (comme sur ton exemple)
+
         ax.set_ylabel(predicted_chars[i], rotation=0, labelpad=15, fontsize=14, va='center')
         ax.set_xticks([])
         ax.set_yticks([])
-        
-        # CRITIQUE : Garder le même ratio X/Y pour ne pas déformer l'écriture
         ax.set_aspect('equal', 'datalim') 
         
     plt.tight_layout()
-    # plt.show()
-    plt.savefig(f"attention_output_{k}.png") # Décommenter pour sauvegarder
+    plt.savefig(f"attention_output_{k}.png")
 
 
 if __name__ == '__main__':
@@ -299,7 +280,6 @@ if __name__ == '__main__':
             if attention_matrix.shape[0] == len(points):
                 attention_matrix = attention_matrix.T
             
-            # Couper la matrice pour qu'elle corresponde exactement au nombre de caractères prédits
             attention_matrix = attention_matrix[:len(pred_chars_list), :]
             
             # Affichage
@@ -310,28 +290,19 @@ if __name__ == '__main__':
         # TODO
         # ... inside your `with torch.no_grad():` test loop ...
         
-        # 1. Flatten the tensors directly (much cleaner than nested list loops)
         true_flat = target_seq.view(-1).cpu().tolist()
         pred_flat = pred_seq.view(-1).cpu().tolist()
-
-        # 2. Setup the variables for YOUR function
-        num_classes = len(dataset.symb2int)
         ignore_list = [dataset.symb2int['<pad>'], dataset.symb2int['<eos>'], dataset.symb2int['<sos>']]
-
-        # 3. Call your fixed function
+        
+        num_classes = len(dataset.symb2int)
         confusion = confusion_matrix(true_flat, pred_flat, num_classes, ignore=ignore_list)
 
-        # 4. Filter the matrix for plotting (Remove the ignored rows/cols so they don't show up empty)
-        # We find which indices are NOT in the ignore list
         valid_idx = [i for i in range(num_classes) if i not in ignore_list]
         
-        # Keep only the valid rows and columns
         clean_matrix = confusion[valid_idx][:, valid_idx]
-        
-        # Get the matching characters for the labels
         clean_labels = [dataset.int2symb[i] for i in valid_idx]
 
-        # 5. Plot
+        # Plot
         plt.figure(figsize=(10, 8))
         sns.heatmap(clean_matrix, annot=True, fmt="d", cmap="Blues", 
                     xticklabels=clean_labels, yticklabels=clean_labels)
