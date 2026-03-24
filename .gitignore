@@ -1,5 +1,6 @@
 learning_curve.png
 test_results_*
+confusion_matrix.png
 best_model.pt
 
 # --- IDE / OS ---
