@@ -27,11 +27,12 @@ if __name__ == '__main__':
     attention = True
 
     # TODO
-    n_epochs = 100
+    n_epochs = 150
     n_samp = 5000
-    learning_rate = 0.004
+    learning_rate = 0.002
     n_layers = 1
-    hidden_dim = 32
+    hidden_dim = 25
+    # hidden_dim = 36 (for bidirectional)
 
     if bidirectional:
         hidden_dim = hidden_dim / 2
@@ -72,6 +73,11 @@ if __name__ == '__main__':
         bidirectional=bidirectional,
         attention=attention
     ).to(device)
+
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Total Parameters:     {total_params:,}")
+    print(f"Trainable Parameters: {trainable_params:,}")
     # Initialisation des variables
     # TODO
     
@@ -216,6 +222,7 @@ if __name__ == '__main__':
         avg_loss = total_loss / cmpt
         edit_distance = np.mean(edit_distances)
         print(f"\nTest - Average Edit Distance: {edit_distance:.4f} - Loss: {avg_loss:.6f}")
+
 
         # Affichage de l'attention
         # TODO (si nécessaire)
