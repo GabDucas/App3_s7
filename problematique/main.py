@@ -11,6 +11,56 @@ from models import *
 from dataset import *
 from metrics import *
 
+def plot_trajectory_attention(points, attention_matrix, predicted_chars, k):
+    """
+    Affiche l'attention du modèle sur une trajectoire 2D.
+    
+    Arguments:
+    - points: numpy array de dimension (T, 2) contenant les (x, y) de la trajectoire.
+    - attention_matrix: numpy array de dimension (N, T) où N est la longueur du mot.
+    - predicted_chars: liste de N caractères (ex: ['a', 'r', 'g', 'u', 's', '<eos>']).
+    """
+    N = len(predicted_chars)
+    
+    # Créer une figure avec N sous-graphiques (un par caractère)
+    fig, axes = plt.subplots(N, 1, figsize=(6, 1.2 * N))
+    
+    # Sécurité au cas où le modèle ne prédit qu'un seul caractère
+    if N == 1:
+        axes = [axes]
+        
+    for i in range(N):
+        ax = axes[i]
+        
+        # 1. Afficher la trajectoire de base en gris pâle (le fond)
+        ax.plot(points[:, 0], points[:, 1], color='#e0e0e0', linewidth=2.5, zorder=1)
+        
+        # 2. Récupérer les poids d'attention pour le caractère 'i'
+        weights = attention_matrix[i]
+        
+        # Optionnel : On normalise les poids pour que le point le plus "attendu" soit 100% noir
+        if np.max(weights) > 0:
+            weights = weights / np.max(weights)
+            
+        # Créer un tableau RGBA (Noir : 0,0,0, avec opacité variable selon le poids)
+        rgba_colors = np.zeros((len(points), 4))
+        rgba_colors[:, 3] = np.clip(weights, 0, 1) # Canal Alpha
+        
+        # Superposer les points d'attention
+        ax.scatter(points[:, 0], points[:, 1], color=rgba_colors, s=20, zorder=2)
+        
+        # 3. Mise en forme esthétique (comme sur ton exemple)
+        ax.set_ylabel(predicted_chars[i], rotation=0, labelpad=15, fontsize=14, va='center')
+        ax.set_xticks([])
+        ax.set_yticks([])
+        
+        # CRITIQUE : Garder le même ratio X/Y pour ne pas déformer l'écriture
+        ax.set_aspect('equal', 'datalim') 
+        
+    plt.tight_layout()
+    # plt.show()
+    plt.savefig(f"attention_output_{k}.png") # Décommenter pour sauvegarder
+
 
 if __name__ == '__main__':
 
@@ -27,7 +77,7 @@ if __name__ == '__main__':
     attention = True
 
     # TODO
-    n_epochs = 150
+    n_epochs = 125
     n_samp = 5000
     learning_rate = 0.006
     n_layers = 1
@@ -239,6 +289,21 @@ if __name__ == '__main__':
             plt.plot(points[:,0], points[:,1])
             plt.title(f"Vrai: {true_text} | Prédit: {pred_text}")
             plt.savefig(f"test_results_{k}.png")
+
+            # Attention
+            pred_tokens_k = [t for t in pred_seq[k].cpu().numpy() if t != dataset.symb2int['<pad>']]
+            pred_chars_list = [dataset.int2symb[t] for t in pred_tokens_k]
+            
+            attention_matrix = attn[k].cpu().numpy() 
+
+            if attention_matrix.shape[0] == len(points):
+                attention_matrix = attention_matrix.T
+            
+            # Couper la matrice pour qu'elle corresponde exactement au nombre de caractères prédits
+            attention_matrix = attention_matrix[:len(pred_chars_list), :]
+            
+            # Affichage
+            plot_trajectory_attention(points, attention_matrix, pred_chars_list, k)
  
         # TODO
         # Affichage de la matrice de confusion
