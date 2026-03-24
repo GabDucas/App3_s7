@@ -21,6 +21,8 @@ class trajectory2seq(nn.Module):
         self.bidirectional = bidirectional
         self.attention = attention
 
+        self.embedding_dim = 10
+
         # Definition des couches
         # Couches pour rnn
         self.encoder_layer = nn.GRU(
@@ -34,12 +36,12 @@ class trajectory2seq(nn.Module):
 
         self.embedding = nn.Embedding(
             num_embeddings=dict_size,
-            embedding_dim=hidden_dim
+            embedding_dim=self.embedding_dim
         )
 
         if self.bidirectional:
             self.decoder_layer = nn.GRU(
-                input_size=hidden_dim,
+                input_size=self.embedding_dim,
                 hidden_size=2*hidden_dim,
                 num_layers=n_layers,
                 batch_first=True,
@@ -47,7 +49,7 @@ class trajectory2seq(nn.Module):
             )
         else:
             self.decoder_layer = nn.GRU(
-                input_size=hidden_dim,
+                input_size=self.embedding_dim,
                 hidden_size=hidden_dim,
                 num_layers=n_layers,
                 batch_first=True,
