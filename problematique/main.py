@@ -29,13 +29,10 @@ if __name__ == '__main__':
     # TODO
     n_epochs = 150
     n_samp = 5000
-    learning_rate = 0.002
+    learning_rate = 0.006
     n_layers = 1
     hidden_dim = 25
-    # hidden_dim = 36 (for bidirectional)
-
-    if bidirectional:
-        hidden_dim = hidden_dim / 2
+    # hidden_dim = 16 # (for bidirectional)
 
     # ---------------- Fin Paramètres et hyperparamètres ----------------#
 
