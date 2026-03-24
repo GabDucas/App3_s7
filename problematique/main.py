@@ -23,19 +23,18 @@ if __name__ == '__main__':
     seed = 1                # Pour répétabilité
     n_workers = 0           # Nombre de threads pour chargement des données (mettre à 0 sur Windows)
     batch_size = 64
-    learning_rate = 0.004
     bidirectional = False
     attention = True
 
-    if bidirectional:
-        hidden_dim = 16
-    else:
-        hidden_dim = 32
-    n_layers = 1
-
     # TODO
-    n_epochs = 140
+    n_epochs = 100
     n_samp = 5000
+    learning_rate = 0.004
+    n_layers = 1
+    hidden_dim = 32
+
+    if bidirectional:
+        hidden_dim = hidden_dim / 2
 
     # ---------------- Fin Paramètres et hyperparamètres ----------------#
 
@@ -214,8 +213,9 @@ if __name__ == '__main__':
                     p_text = "".join(p_chars)
                     
                     edit_distances.append(edit_distance(t_text, p_text))
+        avg_loss = total_loss / cmpt
         edit_distance = np.mean(edit_distances)
-        print(f"Average Edit Distance: {edit_distance:.4f}")
+        print(f"\nTest - Average Edit Distance: {edit_distance:.4f} - Loss: {avg_loss:.6f}")
 
         # Affichage de l'attention
         # TODO (si nécessaire)
