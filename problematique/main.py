@@ -57,7 +57,7 @@ if __name__ == '__main__':
     bidirectional = False
     attention = True
 
-    # TODO
+    
     n_epochs = 125
     n_samp = 5000
     learning_rate = 0.006
@@ -76,20 +76,20 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() and not force_cpu else "cpu")
 
     # Instanciation de l'ensemble de données
-    # TODO
+    
     dataset = HandwrittenWords('problematique/data_trainval.p')
     
     # Séparation de l'ensemble de données (entraînement et validation)
-    # TODO
+    
     dataset_train, dataset_val, dataset_test = torch.utils.data.random_split(dataset, [3500, 1000, 500])
 
     # Instanciation des dataloaders
-    # TODO
+    
     dataload_train = DataLoader(dataset_train, batch_size=batch_size, shuffle=True, num_workers=n_workers)
     dataload_val = DataLoader(dataset_val, batch_size=batch_size, shuffle=False, num_workers=n_workers)
 
     # Instanciation du model
-    # TODO
+    
     model = trajectory2seq(
         hidden_dim=hidden_dim,
         n_layers=1,
@@ -107,7 +107,7 @@ if __name__ == '__main__':
     print(f"Total Parameters:     {total_params:,}")
     print(f"Trainable Parameters: {trainable_params:,}")
     # Initialisation des variables
-    # TODO
+    
     
     train_loss_list = []
     val_loss_list = []
@@ -117,13 +117,13 @@ if __name__ == '__main__':
     if training:
         print('in train')
         # Fonction de coût et optimizateur
-        # TODO
+        
         criterion = nn.CrossEntropyLoss(ignore_index=dataset.symb2int['<pad>'])
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
 
         for epoch in range(1, n_epochs + 1):
             # Entraînement
-            # TODO
+            
 
             model.train()
             running_loss_train = 0
@@ -166,7 +166,7 @@ if __name__ == '__main__':
                 
             train_loss = running_loss_train / len(dataload_train)
             # Validation
-            # TODO
+            
 
             model.eval()
             running_loss_val = 0
@@ -189,11 +189,11 @@ if __name__ == '__main__':
             print(f"\nValidation - Epoch {epoch}: Loss={val_loss:.6f}")   
 
             # Ajouter les loss aux listes
-            # TODO
+        
             train_loss_list.append(train_loss)
             val_loss_list.append(val_loss)
             # Enregistrer les poids
-            # TODO
+        
 
             if epoch == 1 or val_loss < best_val_loss:
                 best_val_loss = val_loss
@@ -214,11 +214,9 @@ if __name__ == '__main__':
         criterion = nn.CrossEntropyLoss(ignore_index=dataset.symb2int['<pad>'])
 
         # Évaluation
-        # TODO
         model.load_state_dict(torch.load("best_model.pt", map_location=device))
         model.eval() 
         # Charger les données de tests
-        # TODO
         dataload_test = DataLoader(dataset_test, batch_size=batch_size, shuffle=False, num_workers=n_workers)
 
         cmpt = 0
@@ -250,13 +248,8 @@ if __name__ == '__main__':
         avg_loss = total_loss / cmpt
         edit_distance = np.mean(edit_distances)
         print(f"\nTest - Average Edit Distance: {edit_distance:.4f} - Loss: {avg_loss:.6f}")
-
-
-        # Affichage de l'attention
-        # TODO (si nécessaire)
-
         
-        # Affichage des résultats de test
+        # RESULTATS TEST + ATTENTION
          
         for k in range(min(3, input_seq.size(0))):
             points = input_seq[k].cpu().numpy()
@@ -285,10 +278,7 @@ if __name__ == '__main__':
             # Affichage
             plot_trajectory_attention(points, attention_matrix, pred_chars_list, k)
  
-        # TODO
-        # Affichage de la matrice de confusion
-        # TODO
-        # ... inside your `with torch.no_grad():` test loop ...
+        # MATRICE DE CONFUSION
         
         true_flat = target_seq.view(-1).cpu().tolist()
         pred_flat = pred_seq.view(-1).cpu().tolist()

@@ -29,7 +29,6 @@ class HandwrittenWords(Dataset):
         # ===============================================
 
         # Extraction des symboles
-        # TODO
         self.symb2int = dict()
         self.symb2int = {start_symbol:0, stop_symbol:1, pad_symbol:2}
         cpt_symb = 3
@@ -45,7 +44,7 @@ class HandwrittenWords(Dataset):
         self.int2symb = {v:k for k,v in self.symb2int.items()}
 
         # Ajout du padding aux séquences
-        # TODO
+        
         self.max_len_traj = max([len(item[1][0]) for item in self.data]) + 1
         self.max_len_word = 6 # 5 + EOS
 

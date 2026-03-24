@@ -23,7 +23,6 @@ class trajectory2seq(nn.Module):
 
         # Definition des couches
         # Couches pour rnn
-        # TODO
         self.encoder_layer = nn.GRU(
             input_size=2,              # coordonnées (x,y)
             hidden_size=hidden_dim,
@@ -58,7 +57,6 @@ class trajectory2seq(nn.Module):
         self.dropout = nn.Dropout(0.3)
 
         # Couches pour attention
-        # TODO
         if bidirectional:
             self.hidden2query = nn.Linear(2*hidden_dim, 2*hidden_dim)
             self.att_combine = nn.Linear(4*hidden_dim, hidden_dim)
@@ -67,7 +65,6 @@ class trajectory2seq(nn.Module):
             self.att_combine = nn.Linear(2*hidden_dim, hidden_dim)
 
         # Couche dense pour la sortie
-        # TODO
         self.fc = nn.Linear(hidden_dim, dict_size)
 
     def encoder(self, x):
