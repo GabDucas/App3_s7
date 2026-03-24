@@ -81,7 +81,8 @@ if __name__ == '__main__':
     
     # Séparation de l'ensemble de données (entraînement et validation)
     
-    dataset_train, dataset_val, dataset_test = torch.utils.data.random_split(dataset, [3500, 1000, 500])
+    dataset_train, dataset_val = torch.utils.data.random_split(dataset, [4250, 750])
+    dataset_test = HandwrittenWords('problematique/data_test.p')
 
     # Instanciation des dataloaders
     
@@ -251,22 +252,23 @@ if __name__ == '__main__':
         
         # RESULTATS TEST + ATTENTION
          
-        for k in range(min(3, input_seq.size(0))):
+        for i in range(min(3, input_seq.size(0))):
+            k = np.random.randint(0, input_seq.size(0))
             points = input_seq[k].cpu().numpy()
             true_tokens = target_seq[k].cpu().numpy()
             pred_tokens = pred_seq[k].cpu().numpy()
-            true_tokens = [t for t in true_tokens if t != dataset.symb2int['<pad>'] and t != dataset.symb2int['<eos>']]
-            pred_tokens = [t for t in pred_tokens if t != dataset.symb2int['<pad>'] and t != dataset.symb2int['<eos>']]
-            true_text = "".join([dataset.int2symb[t] for t in true_tokens])
-            pred_text = "".join([dataset.int2symb[t] for t in pred_tokens])
+            true_tokens = [t for t in true_tokens if t != dataset_test.symb2int['<pad>'] and t != dataset_test.symb2int['<eos>']]
+            pred_tokens = [t for t in pred_tokens if t != dataset_test.symb2int['<pad>'] and t != dataset_test.symb2int['<eos>']]
+            true_text = "".join([dataset_test.int2symb[t] for t in true_tokens])
+            pred_text = "".join([dataset_test.int2symb[t] for t in pred_tokens])
             plt.figure()
             plt.plot(points[:,0], points[:,1])
             plt.title(f"Vrai: {true_text} | Prédit: {pred_text}")
-            plt.savefig(f"test_results_{k}.png")
+            plt.savefig(f"test_results_{i}.png")
 
             # Attention
-            pred_tokens_k = [t for t in pred_seq[k].cpu().numpy() if t != dataset.symb2int['<pad>']]
-            pred_chars_list = [dataset.int2symb[t] for t in pred_tokens_k]
+            pred_tokens_k = [t for t in pred_seq[k].cpu().numpy() if t != dataset_test.symb2int['<pad>']]
+            pred_chars_list = [dataset_test.int2symb[t] for t in pred_tokens_k]
             
             attention_matrix = attn[k].cpu().numpy() 
 
@@ -276,21 +278,21 @@ if __name__ == '__main__':
             attention_matrix = attention_matrix[:len(pred_chars_list), :]
             
             # Affichage
-            plot_trajectory_attention(points, attention_matrix, pred_chars_list, k)
+            plot_trajectory_attention(points, attention_matrix, pred_chars_list, i)
  
         # MATRICE DE CONFUSION
         
         true_flat = target_seq.view(-1).cpu().tolist()
         pred_flat = pred_seq.view(-1).cpu().tolist()
-        ignore_list = [dataset.symb2int['<pad>'], dataset.symb2int['<eos>'], dataset.symb2int['<sos>']]
+        ignore_list = [dataset_test.symb2int['<pad>'], dataset_test.symb2int['<eos>'], dataset_test.symb2int['<sos>']]
         
-        num_classes = len(dataset.symb2int)
+        num_classes = len(dataset_test.symb2int)
         confusion = confusion_matrix(true_flat, pred_flat, num_classes, ignore=ignore_list)
 
         valid_idx = [i for i in range(num_classes) if i not in ignore_list]
         
         clean_matrix = confusion[valid_idx][:, valid_idx]
-        clean_labels = [dataset.int2symb[i] for i in valid_idx]
+        clean_labels = [dataset_test.int2symb[i] for i in valid_idx]
 
         # Plot
         plt.figure(figsize=(10, 8))

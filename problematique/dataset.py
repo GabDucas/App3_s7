@@ -30,15 +30,23 @@ class HandwrittenWords(Dataset):
 
         # Extraction des symboles
         self.symb2int = dict()
-        self.symb2int = {start_symbol:0, stop_symbol:1, pad_symbol:2}
-        cpt_symb = 3
+        # self.symb2int = {start_symbol:0, stop_symbol:1, pad_symbol:2}
+        # cpt_symb = 3
 
-        for i in range(len(self.data)):
-            word = self.data[i][0]
-            for symb in word:
-                if symb not in self.symb2int:
-                    self.symb2int[symb] = cpt_symb
-                    cpt_symb += 1
+        # for i in range(len(self.data)):
+        #     word = self.data[i][0]
+        #     for symb in word:
+        #         if symb not in self.symb2int:
+        #             self.symb2int[symb] = cpt_symb
+        #             cpt_symb += 1
+
+        self.symb2int = {
+            start_symbol: 0, stop_symbol: 1, pad_symbol: 2,
+            'a': 3, 'b': 4, 'c': 5, 'd': 6, 'e': 7, 'f': 8, 'g': 9, 'h': 10,
+            'i': 11, 'j': 12, 'k': 13, 'l': 14, 'm': 15, 'n': 16, 'o': 17, 'p': 18,
+            'q': 19, 'r': 20, 's': 21, 't': 22, 'u': 23, 'v': 24, 'w': 25, 'x': 26,
+            'y': 27, 'z': 28
+        }
 
         self.int2symb = dict()
         self.int2symb = {v:k for k,v in self.symb2int.items()}
