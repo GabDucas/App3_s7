@@ -2,6 +2,7 @@
 # Auteur: Jean-Samuel Lauzon et  Jonathan Vincent
 # Hivers 2021
 
+import seaborn as sns
 import torch
 from torch import nn
 import numpy as np
@@ -33,7 +34,7 @@ if __name__ == '__main__':
     n_layers = 1
 
     # TODO
-    n_epochs = 100
+    n_epochs = 140
     n_samp = 5000
 
     # ---------------- Fin Paramètres et hyperparamètres ----------------#
@@ -187,7 +188,8 @@ if __name__ == '__main__':
         # TODO
         dataload_test = DataLoader(dataset_test, batch_size=batch_size, shuffle=False, num_workers=n_workers)
 
-
+        cmpt = 0
+        edit_distances = []
         with torch.no_grad():  # Pas de calcul de gradients
             for batch_idx, data in enumerate(dataload_test):
                 # Formatage des données
@@ -203,6 +205,17 @@ if __name__ == '__main__':
                                  target_seq.view(-1))
                 total_loss += loss.item()
                 pred_seq = torch.argmax(output, dim=2)
+                cmpt += 1
+                for true_array, pred_array in zip(target_seq, pred_seq):
+                    t_chars = [dataset.int2symb[t.item()] for t in true_array if t.item() not in [dataset.symb2int['<pad>'], dataset.symb2int['<eos>']]]
+                    p_chars = [dataset.int2symb[p.item()] for p in pred_array if p.item() not in [dataset.symb2int['<pad>'], dataset.symb2int['<eos>']]]
+
+                    t_text = "".join(t_chars)
+                    p_text = "".join(p_chars)
+                    
+                    edit_distances.append(edit_distance(t_text, p_text))
+        edit_distance = np.mean(edit_distances)
+        print(f"Average Edit Distance: {edit_distance:.4f}")
 
         # Affichage de l'attention
         # TODO (si nécessaire)
@@ -210,12 +223,12 @@ if __name__ == '__main__':
         
         # Affichage des résultats de test
          
-        for k in range(min(10, input_seq.size(0))):
+        for k in range(min(3, input_seq.size(0))):
             points = input_seq[k].cpu().numpy()
             true_tokens = target_seq[k].cpu().numpy()
             pred_tokens = pred_seq[k].cpu().numpy()
-            true_tokens = [t for t in true_tokens if t != dataset.symb2int['<pad>']]
-            pred_tokens = [t for t in pred_tokens if t != dataset.symb2int['<pad>']]
+            true_tokens = [t for t in true_tokens if t != dataset.symb2int['<pad>'] and t != dataset.symb2int['<eos>']]
+            pred_tokens = [t for t in pred_tokens if t != dataset.symb2int['<pad>'] and t != dataset.symb2int['<eos>']]
             true_text = "".join([dataset.int2symb[t] for t in true_tokens])
             pred_text = "".join([dataset.int2symb[t] for t in pred_tokens])
             plt.figure()
@@ -224,8 +237,37 @@ if __name__ == '__main__':
             plt.savefig(f"test_results_{k}.png")
  
         # TODO
-        
         # Affichage de la matrice de confusion
         # TODO
+        # ... inside your `with torch.no_grad():` test loop ...
+        
+        # 1. Flatten the tensors directly (much cleaner than nested list loops)
+        true_flat = target_seq.view(-1).cpu().tolist()
+        pred_flat = pred_seq.view(-1).cpu().tolist()
 
+        # 2. Setup the variables for YOUR function
+        num_classes = len(dataset.symb2int)
+        ignore_list = [dataset.symb2int['<pad>'], dataset.symb2int['<eos>'], dataset.symb2int['<sos>']]
+
+        # 3. Call your fixed function
+        confusion = confusion_matrix(true_flat, pred_flat, num_classes, ignore=ignore_list)
+
+        # 4. Filter the matrix for plotting (Remove the ignored rows/cols so they don't show up empty)
+        # We find which indices are NOT in the ignore list
+        valid_idx = [i for i in range(num_classes) if i not in ignore_list]
+        
+        # Keep only the valid rows and columns
+        clean_matrix = confusion[valid_idx][:, valid_idx]
+        
+        # Get the matching characters for the labels
+        clean_labels = [dataset.int2symb[i] for i in valid_idx]
+
+        # 5. Plot
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(clean_matrix, annot=True, fmt="d", cmap="Blues", 
+                    xticklabels=clean_labels, yticklabels=clean_labels)
+        plt.ylabel('Actual Character')
+        plt.xlabel('Predicted Character')
+        plt.title("Character-Level Confusion Matrix")
+        plt.savefig("confusion_matrix.png")
         pass
