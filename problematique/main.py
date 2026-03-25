@@ -56,11 +56,11 @@ if __name__ == '__main__':
     batch_size = 64
     bidirectional = False
     attention = True
-    test_lstm = True
+    test_lstm = False
 
     
     n_samp = 5000
-    n_epochs = 100 # 70
+    n_epochs = 70
     learning_rate = 0.008
     n_layers = 1
 
