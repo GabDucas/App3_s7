@@ -56,18 +56,22 @@ if __name__ == '__main__':
     batch_size = 64
     bidirectional = False
     attention = True
+    test_lstm = True
 
     
     n_samp = 5000
-    # n_epochs = 150
-    # learning_rate = 0.004
-    n_epochs = 70
+    n_epochs = 100 # 70
     learning_rate = 0.008
     n_layers = 1
-    if bidirectional:
+
+    if bidirectional and not test_lstm:
         hidden_dim = 8//n_layers
-    else:
+    elif not bidirectional and not test_lstm:
         hidden_dim = 28//n_layers
+    elif bidirectional and test_lstm:
+        hidden_dim = 4//n_layers
+    elif not bidirectional and test_lstm:
+        hidden_dim = 25//n_layers
 
     # ---------------- Fin Paramètres et hyperparamètres ----------------#
 
@@ -104,7 +108,8 @@ if __name__ == '__main__':
         dict_size=len(dataset.symb2int) ,
         max_len=dataset.max_len_traj,
         bidirectional=bidirectional,
-        attention=attention
+        attention=attention,
+        lstm=test_lstm
     ).to(device)
 
     total_params = sum(p.numel() for p in model.parameters())
@@ -116,6 +121,9 @@ if __name__ == '__main__':
     
     train_loss_list = []
     val_loss_list = []
+    train_dist_list = []
+    val_dist_list = []
+    dist_epochs = []
     best_val_loss = float('inf')
     running_loss_val = 0
     
@@ -126,12 +134,17 @@ if __name__ == '__main__':
         criterion = nn.CrossEntropyLoss(ignore_index=dataset.symb2int['<pad>'])
         optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
 
+        if learning_curves:
+            plt.ion() # Turn on interactive mode for live updates
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+
         for epoch in range(1, n_epochs + 1):
             # Entraînement
             
 
             model.train()
             running_loss_train = 0
+            running_dist_train = 0
 
             for batch_idx, data in enumerate(dataload_train):
                 # Formatage des données
@@ -156,25 +169,43 @@ if __name__ == '__main__':
 
                 running_loss_train += loss.item()
 
+                if epoch % 5 == 0 or epoch == n_epochs or epoch == 1:
+                    pred_seq = torch.argmax(output, dim=2)
+                    batch_dist = 0
+                    for i in range(input_seq.size(0)):
+                        # Convert indices to text, ignoring special tokens
+                        t_text = "".join([dataset.int2symb[t.item()] for t in target_seq[i] 
+                                        if t.item() not in [dataset.symb2int['<pad>'], dataset.symb2int['<eos>'], dataset.symb2int['<sos>']]])
+                        p_text = "".join([dataset.int2symb[p.item()] for p in pred_seq[i] 
+                                        if p.item() not in [dataset.symb2int['<pad>'], dataset.symb2int['<eos>'], dataset.symb2int['<sos>']]])
+                        batch_dist += edit_distance(t_text, p_text)
+                    
+                    running_dist_train += (batch_dist / input_seq.size(0))
+
 
                 print(
-                        'Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f}'.format(
+                        'Train - Epoch: {}/{} [{}/{} ({:.0f}%)] Average Loss: {:.6f} - Average Edit Distance: {:.6f}'.format(
                             epoch,
                             n_epochs,
                             batch_idx * batch_size,
                             len(dataload_train.dataset),
                             100. * batch_idx * batch_size / len(dataload_train.dataset),
-                            running_loss_train / (batch_idx + 1)
+                            running_loss_train / (batch_idx + 1),
+                            running_dist_train / (batch_idx + 1)
                         ),
                         end='\r'
                     )
                 
             train_loss = running_loss_train / len(dataload_train)
-            # Validation
-            
+            if epoch % 5 == 0 or epoch == n_epochs or epoch == 1:
+                train_dist = running_dist_train / len(dataload_train)
+                dist_epochs.append(epoch)
 
+
+            # Validation
             model.eval()
             running_loss_val = 0
+            running_dist_val = 0
 
             with torch.no_grad():
                 for batch_idx, data in enumerate(dataload_val):
@@ -190,13 +221,35 @@ if __name__ == '__main__':
                                     target_seq.view(-1))
                     running_loss_val += loss.item()
 
+                    if epoch % 5 == 0 or epoch == n_epochs or epoch == 1:
+                        pred_seq = torch.argmax(output, dim=2)
+                        batch_dist = 0
+                        for i in range(input_seq.size(0)):
+                            # Convert indices to text, ignoring special tokens
+                            t_text = "".join([dataset.int2symb[t.item()] for t in target_seq[i] 
+                                            if t.item() not in [dataset.symb2int['<pad>'], dataset.symb2int['<eos>'], dataset.symb2int['<sos>']]])
+                            p_text = "".join([dataset.int2symb[p.item()] for p in pred_seq[i] 
+                                            if p.item() not in [dataset.symb2int['<pad>'], dataset.symb2int['<eos>'], dataset.symb2int['<sos>']]])
+                            batch_dist += edit_distance(t_text, p_text)
+                        
+                        running_dist_val += (batch_dist / input_seq.size(0))
+
             val_loss = running_loss_val / len(dataload_val)
-            print(f"\nValidation - Epoch {epoch}: Loss={val_loss:.6f}")   
+            if epoch % 5 == 0 or epoch == n_epochs or epoch == 1:
+                val_dist = running_dist_val / len(dataload_val)
+            else:
+                val_dist = 0.0
+            print(f"\nValidation - Epoch {epoch}: Loss={val_loss:.6f}, Edit Distance={val_dist:.6f}")   
 
             # Ajouter les loss aux listes
         
             train_loss_list.append(train_loss)
             val_loss_list.append(val_loss)
+
+            if epoch % 5 == 0 or epoch == n_epochs or epoch == 1:
+                train_dist_list.append(train_dist)
+                val_dist_list.append(val_dist)
+
             # Enregistrer les poids
         
 
@@ -206,12 +259,26 @@ if __name__ == '__main__':
 
             # Affichage
             if learning_curves:
-                plt.clf()
-                plt.plot(train_loss_list, label="Train")
-                plt.plot(val_loss_list, label="Validation")
-                plt.legend()
+                ax1.clear()
+                ax2.clear()
+
+                # Plot Loss
+                ax1.plot(train_loss_list, label="Train Loss", color='blue')
+                ax1.plot(val_loss_list, label="Val Loss", color='red')
+                ax1.set_title("Evolution of Loss")
+                ax1.set_xlabel("Epoch")
+                ax1.legend()
+
+                # Plot Edit Distance
+                if epoch % 5 == 0 or epoch == n_epochs or epoch == 1: # Only plot if we have at least one data point
+                    ax2.plot(dist_epochs, train_dist_list, label="Train Dist", color='blue')
+                    ax2.plot(dist_epochs, val_dist_list, label="Val Dist", color='red')
+                    ax2.set_title("Edit Distance (Sampled)")
+                    ax2.set_xlabel("Epoch")
+
+                plt.tight_layout()
                 plt.pause(0.01)
-    plt.savefig("learning_curve.png") 
+    plt.savefig("learning_curves.png") 
 
     if test:
         total_loss = 0

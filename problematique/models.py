@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class trajectory2seq(nn.Module):
-    def __init__(self, hidden_dim, n_layers, int2symb, symb2int, dict_size, device, max_len, bidirectional=False, attention=False):
+    def __init__(self, hidden_dim, n_layers, int2symb, symb2int, dict_size, device, max_len, bidirectional=False, attention=False, lstm=False):
         super(trajectory2seq, self).__init__()
         # Definition des parametres
         self.hidden_dim = hidden_dim
@@ -20,41 +20,67 @@ class trajectory2seq(nn.Module):
         self.max_len = max_len
         self.bidirectional = bidirectional
         self.attention = attention
+        self.lstm = lstm
 
         self.embedding_dim = 10
 
         # Definition des couches
         # Couches pour rnn
-        self.encoder_layer = nn.GRU(
-            input_size=2,              # coordonnées (x,y)
-            hidden_size=hidden_dim,
-            num_layers=n_layers,
-            batch_first=True,
-            bidirectional=self.bidirectional,
-            dropout=0.3 if n_layers > 1 else 0
-        )
-
         self.embedding = nn.Embedding(
             num_embeddings=dict_size,
             embedding_dim=self.embedding_dim
         )
 
-        if self.bidirectional:
-            self.decoder_layer = nn.GRU(
-                input_size=self.embedding_dim,
-                hidden_size=2*hidden_dim,
-                num_layers=n_layers,
-                batch_first=True,
-                dropout=0.3 if n_layers > 1 else 0
-            )
-        else:
-            self.decoder_layer = nn.GRU(
-                input_size=self.embedding_dim,
+        if not lstm:
+            self.encoder_layer = nn.GRU(
+                input_size=2,              # coordonnées (x,y)
                 hidden_size=hidden_dim,
                 num_layers=n_layers,
                 batch_first=True,
+                bidirectional=self.bidirectional,
                 dropout=0.3 if n_layers > 1 else 0
             )
+            if self.bidirectional:
+                self.decoder_layer = nn.GRU(
+                    input_size=self.embedding_dim,
+                    hidden_size=2*hidden_dim,
+                    num_layers=n_layers,
+                    batch_first=True,
+                    dropout=0.3 if n_layers > 1 else 0
+                )
+            else:
+                self.decoder_layer = nn.GRU(
+                    input_size=self.embedding_dim,
+                    hidden_size=hidden_dim,
+                    num_layers=n_layers,
+                    batch_first=True,
+                    dropout=0.3 if n_layers > 1 else 0
+                )
+        else:
+            self.encoder_layer = nn.LSTM(
+                input_size=2,              # coordonnées (x,y)
+                hidden_size=hidden_dim,
+                num_layers=n_layers,
+                batch_first=True,
+                bidirectional=self.bidirectional,
+                dropout=0.3 if n_layers > 1 else 0
+            )
+            if self.bidirectional:
+                self.decoder_layer = nn.LSTM(
+                    input_size=self.embedding_dim,
+                    hidden_size=2*hidden_dim,
+                    num_layers=n_layers,
+                    batch_first=True,
+                    dropout=0.3 if n_layers > 1 else 0
+                )
+            else:
+                self.decoder_layer = nn.LSTM(
+                    input_size=self.embedding_dim,
+                    hidden_size=hidden_dim,
+                    num_layers=n_layers,
+                    batch_first=True,
+                    dropout=0.3 if n_layers > 1 else 0
+                )
 
         self.dropout = nn.Dropout(0.3)
 
@@ -70,10 +96,18 @@ class trajectory2seq(nn.Module):
         self.fc = nn.Linear(hidden_dim, dict_size)
 
     def encoder(self, x):
-        out, hidden = self.encoder_layer(x)
-        if self.bidirectional:
-            hidden = torch.cat((hidden[0], hidden[1]), dim=1).unsqueeze(0)  # (batch, 2H)
-        return out, hidden
+        cell = None
+        if not self.lstm:
+            out, hidden = self.encoder_layer(x)
+            if self.bidirectional:
+                hidden = torch.cat((hidden[0], hidden[1]), dim=1).unsqueeze(0)  # (batch, 2H)
+        else:
+            out, (hidden, cell) = self.encoder_layer(x)
+            if self.bidirectional:
+                hidden = torch.cat((hidden[0], hidden[1]), dim=1).unsqueeze(0)  # (batch, 2H)
+                cell = torch.cat((cell[0], cell[1]), dim=1).unsqueeze(0)  # (batch, 2H)
+        
+        return out, hidden, cell
 
     def attentionModule(self, query, values):
         #query.shape = (batch_size, 1, hidden_dim)
@@ -97,7 +131,7 @@ class trajectory2seq(nn.Module):
 
         return attention_output, attention_weights
     
-    def decoderWithAttn(self, encoder_outs, hidden, target_seq, teacher_forcing_ratio=0.5):
+    def decoderWithAttn(self, encoder_outs, hidden, target_seq, teacher_forcing_ratio=0.5, cell=None):
         #encoder_outs = (batch, seq_len_in, hidden_dim)
         #hidden = (num_layers, batch, hidden_dim)
 
@@ -115,7 +149,10 @@ class trajectory2seq(nn.Module):
 
             for i in range(max_len):
                 embedded = self.dropout(self.embedding(vec_in))
-                buffer, hidden = self.decoder_layer(embedded, hidden)
+                if not self.lstm:
+                    buffer, hidden = self.decoder_layer(embedded, hidden)
+                else:
+                    buffer, (hidden, cell) = self.decoder_layer(embedded, (hidden, cell))
 
                 attention_out, attention_weight_buff = self.attentionModule(buffer, encoder_outs)
                 attention_weights[:,:,i] = attention_weight_buff
@@ -138,7 +175,10 @@ class trajectory2seq(nn.Module):
             for i in range(max_len):
                 attention_weights = None
                 embedded = self.dropout(self.embedding(vec_in))
-                out, hidden = self.decoder_layer(embedded, hidden)
+                if not self.lstm:
+                    out, hidden = self.decoder_layer(embedded, hidden)
+                else:
+                    out, (hidden, cell) = self.decoder_layer(embedded, (hidden, cell))
                 out_lin = self.fc(out[:,0,:])
                 vec_out[:,i,:] = out_lin
 
@@ -152,11 +192,11 @@ class trajectory2seq(nn.Module):
         return vec_out, hidden, attention_weights
 
     def forward(self, x, target_seq, teacher_forcing_ratio=0.5):
-        out, h = self.encoder(x)
+        out, h, c = self.encoder(x)
         # Pas de teacher forcing à l'inférence (model.eval())
 
         ratio = teacher_forcing_ratio if self.training else 0.0
-        out, hidden, attn = self.decoderWithAttn(out, h, target_seq, ratio)
+        out, hidden, attn = self.decoderWithAttn(out, h, target_seq, ratio, cell=c)
         return out, hidden, attn
     
 
