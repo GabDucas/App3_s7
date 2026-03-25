@@ -114,23 +114,6 @@ class HandwrittenWords(Dataset):
         print('---')
         
 
-# def indices_to_text(indices_batch, int2symb):
-#     """
-#     indices_batch: Tensor (batch_size, seq_len)
-#     int2symb: dictionnaire int->symbole
-#     """
-#     words = []
-#     for seq in indices_batch:
-#         chars = []
-#         for idx in seq:
-#             symb = int2symb[idx.item()]
-#             if symb == '<eos>':
-#                 break
-#             if symb not in ['<pad>', '<sos>']:
-#                 chars.append(symb)
-#         words.append(''.join(chars))
-#     return words
-
 if __name__ == "__main__":
     # Code de test pour aider à compléter le dataset
     a = HandwrittenWords('problematique/data_trainval.p')

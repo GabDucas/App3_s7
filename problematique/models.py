@@ -31,6 +31,7 @@ class trajectory2seq(nn.Module):
             embedding_dim=self.embedding_dim
         )
 
+        # paramètre lstm pour comparer avec gru
         if not lstm:
             self.encoder_layer = nn.GRU(
                 input_size=2,              # coordonnées (x,y)
@@ -40,6 +41,7 @@ class trajectory2seq(nn.Module):
                 bidirectional=self.bidirectional,
                 dropout=0.3 if n_layers > 1 else 0
             )
+            # Decoder avec ou sans bidirectionnalité
             if self.bidirectional:
                 self.decoder_layer = nn.GRU(
                     input_size=self.embedding_dim,
@@ -166,6 +168,7 @@ class trajectory2seq(nn.Module):
 
                 vec_out[:,i,:] = out_lin
         
+                # Décision d'utiliser le teacher forcing ou la prédiction du modèle pour l'entrée suivante
                 use_teacher = (torch.rand(1).item() < teacher_forcing_ratio) and self.training
                 if use_teacher:
                     vec_in = target_seq[:, i].unsqueeze(1)

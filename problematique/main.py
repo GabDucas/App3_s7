@@ -169,6 +169,7 @@ if __name__ == '__main__':
 
                 running_loss_train += loss.item()
 
+                # Calcul de la distance d'édition pour un échantillon du batch
                 if epoch % 5 == 0 or epoch == n_epochs or epoch == 1:
                     pred_seq = torch.argmax(output, dim=2)
                     batch_dist = 0
@@ -195,7 +196,8 @@ if __name__ == '__main__':
                         ),
                         end='\r'
                     )
-                
+            
+            # Calcul des métriques d'entraînement pour l'époque
             train_loss = running_loss_train / len(dataload_train)
             if epoch % 5 == 0 or epoch == n_epochs or epoch == 1:
                 train_dist = running_dist_train / len(dataload_train)
@@ -221,6 +223,7 @@ if __name__ == '__main__':
                                     target_seq.view(-1))
                     running_loss_val += loss.item()
 
+                    # Calcul de la distance d'édition pour un échantillon du batch
                     if epoch % 5 == 0 or epoch == n_epochs or epoch == 1:
                         pred_seq = torch.argmax(output, dim=2)
                         batch_dist = 0
@@ -309,6 +312,7 @@ if __name__ == '__main__':
                 total_loss += loss.item()
                 pred_seq = torch.argmax(output, dim=2)
                 cmpt += 1
+                # Calcul de la distance d'édition pour le batch
                 for true_array, pred_array in zip(target_seq, pred_seq):
                     t_chars = [dataset.int2symb[t.item()] for t in true_array if t.item() not in [dataset.symb2int['<pad>'], dataset.symb2int['<eos>']]]
                     p_chars = [dataset.int2symb[p.item()] for p in pred_array if p.item() not in [dataset.symb2int['<pad>'], dataset.symb2int['<eos>']]]
@@ -324,6 +328,7 @@ if __name__ == '__main__':
         # RESULTATS TEST + ATTENTION
          
         for i in range(min(3, input_seq.size(0))):
+            # Sélection aléatoire d'un échantillon du batch
             k = np.random.randint(0, input_seq.size(0))
             points = input_seq[k].cpu().numpy()
             true_tokens = target_seq[k].cpu().numpy()
@@ -332,12 +337,13 @@ if __name__ == '__main__':
             pred_tokens = [t for t in pred_tokens if t != dataset_test.symb2int['<pad>'] and t != dataset_test.symb2int['<eos>']]
             true_text = "".join([dataset_test.int2symb[t] for t in true_tokens])
             pred_text = "".join([dataset_test.int2symb[t] for t in pred_tokens])
+            # Affichage de la trajectoire
             plt.figure()
             plt.plot(points[:,0], points[:,1])
             plt.title(f"Vrai: {true_text} | Prédit: {pred_text}")
             plt.savefig(f"test_results_{i}.png")
 
-            # Attention
+            # Préparation de l'échantillon d'attention
             pred_tokens_k = [t for t in pred_seq[k].cpu().numpy() if t != dataset_test.symb2int['<pad>']]
             pred_chars_list = [dataset_test.int2symb[t] for t in pred_tokens_k]
             

@@ -1,0 +1,205 @@
+# GRO722 problématique
+# Auteur: Jean-Samuel Lauzon et  Jonathan Vincent
+# Hivers 2021
+
+import torch
+from torch import nn
+import numpy as np
+import matplotlib.pyplot as plt
+
+class trajectory2seq(nn.Module):
+    def __init__(self, hidden_dim, n_layers, int2symb, symb2int, dict_size, device, max_len, bidirectional=False, attention=False, lstm=False):
+        super(trajectory2seq, self).__init__()
+        # Definition des parametres
+        self.hidden_dim = hidden_dim
+        self.n_layers = n_layers
+        self.device = device
+        self.symb2int = symb2int
+        self.int2symb = int2symb
+        self.dict_size = dict_size
+        self.max_len = max_len
+        self.bidirectional = bidirectional
+        self.attention = attention
+        self.lstm = lstm
+
+        self.embedding_dim = 10
+
+        # Definition des couches
+        # Couches pour rnn
+        self.embedding = nn.Embedding(
+            num_embeddings=dict_size,
+            embedding_dim=self.embedding_dim
+        )
+
+        # paramètre lstm pour comparer avec gru
+        if not lstm:
+            self.encoder_layer = nn.GRU(
+                input_size=2,              # coordonnées (x,y)
+                hidden_size=hidden_dim,
+                num_layers=n_layers,
+                batch_first=True,
+                bidirectional=self.bidirectional,
+                dropout=0.3 if n_layers > 1 else 0
+            )
+            # Decoder avec ou sans bidirectionnalité
+            if self.bidirectional:
+                self.decoder_layer = nn.GRU(
+                    input_size=self.embedding_dim,
+                    hidden_size=2*hidden_dim,
+                    num_layers=n_layers,
+                    batch_first=True,
+                    dropout=0.3 if n_layers > 1 else 0
+                )
+            else:
+                self.decoder_layer = nn.GRU(
+                    input_size=self.embedding_dim,
+                    hidden_size=hidden_dim,
+                    num_layers=n_layers,
+                    batch_first=True,
+                    dropout=0.3 if n_layers > 1 else 0
+                )
+        else:
+            self.encoder_layer = nn.LSTM(
+                input_size=2,              # coordonnées (x,y)
+                hidden_size=hidden_dim,
+                num_layers=n_layers,
+                batch_first=True,
+                bidirectional=self.bidirectional,
+                dropout=0.3 if n_layers > 1 else 0
+            )
+            if self.bidirectional:
+                self.decoder_layer = nn.LSTM(
+                    input_size=self.embedding_dim,
+                    hidden_size=2*hidden_dim,
+                    num_layers=n_layers,
+                    batch_first=True,
+                    dropout=0.3 if n_layers > 1 else 0
+                )
+            else:
+                self.decoder_layer = nn.LSTM(
+                    input_size=self.embedding_dim,
+                    hidden_size=hidden_dim,
+                    num_layers=n_layers,
+                    batch_first=True,
+                    dropout=0.3 if n_layers > 1 else 0
+                )
+
+        self.dropout = nn.Dropout(0.3)
+
+        # Couches pour attention
+        if bidirectional:
+            self.hidden2query = nn.Linear(2*hidden_dim, 2*hidden_dim)
+            self.att_combine = nn.Linear(4*hidden_dim, hidden_dim)
+        else:
+            self.hidden2query = nn.Linear(hidden_dim, hidden_dim)
+            self.att_combine = nn.Linear(2*hidden_dim, hidden_dim)
+
+        # Couche dense pour la sortie
+        self.fc = nn.Linear(hidden_dim, dict_size)
+
+    def encoder(self, x):
+        cell = None
+        if not self.lstm:
+            out, hidden = self.encoder_layer(x)
+            if self.bidirectional:
+                hidden = torch.cat((hidden[0], hidden[1]), dim=1).unsqueeze(0)  # (batch, 2H)
+        else:
+            out, (hidden, cell) = self.encoder_layer(x)
+            if self.bidirectional:
+                hidden = torch.cat((hidden[0], hidden[1]), dim=1).unsqueeze(0)  # (batch, 2H)
+                cell = torch.cat((cell[0], cell[1]), dim=1).unsqueeze(0)  # (batch, 2H)
+        
+        return out, hidden, cell
+
+    def attentionModule(self, query, values):
+        #query.shape = (batch_size, 1, hidden_dim)
+        #values.shape = (batch_size, seq_len_in, hidden_dim)
+
+        query = self.hidden2query(query)
+        
+        #values.shape = (batch_size, 1, seq_len_in)
+        #attention.shape = (batch_size, 1, seq_len_in)
+        attention = torch.bmm(query, values.permute(0,2,1))
+
+        attention_weights = torch.softmax(attention[:,0,:], dim=1)
+        if self.bidirectional:
+            attention_weights_repeat = attention_weights[:,:,None].repeat(1,1,2*self.hidden_dim)
+        else:
+            attention_weights_repeat = attention_weights[:,:,None].repeat(1,1,self.hidden_dim)
+        attention_output = torch.sum(attention_weights_repeat * values, dim=1)
+
+        #attention_output  : (batch, hidden_dim)
+        #attention_weights : (batch, seq_len_in)
+
+        return attention_output, attention_weights
+    
+    def decoderWithAttn(self, encoder_outs, hidden, target_seq, teacher_forcing_ratio=0.5, cell=None):
+        #encoder_outs = (batch, seq_len_in, hidden_dim)
+        #hidden = (num_layers, batch, hidden_dim)
+
+        max_len = target_seq.size(1)
+        batch_size = hidden.shape[1]
+
+        #vec_in = (batch,1)
+        vec_in = torch.full((batch_size,1),
+                            self.symb2int['<sos>'],
+                            dtype=torch.long).to(self.device)
+
+        vec_out = torch.zeros((batch_size, max_len, self.dict_size)).to(self.device)
+        if self.attention:
+            attention_weights = torch.zeros((batch_size, encoder_outs.shape[1], max_len)).to(self.device)
+
+            for i in range(max_len):
+                embedded = self.dropout(self.embedding(vec_in))
+                if not self.lstm:
+                    buffer, hidden = self.decoder_layer(embedded, hidden)
+                else:
+                    buffer, (hidden, cell) = self.decoder_layer(embedded, (hidden, cell))
+
+                attention_out, attention_weight_buff = self.attentionModule(buffer, encoder_outs)
+                attention_weights[:,:,i] = attention_weight_buff
+
+                #torch.cat... = (batch, hidden) + (batch, hidden) → (batch, hidden×2)
+                #att_combine (batch, hidden×2) → (batch, hidden)
+                out = self.att_combine(torch.cat([buffer[:,0,:], attention_out], dim=1))
+                out = self.dropout(out)
+
+                out_lin = self.fc(out)
+
+                vec_out[:,i,:] = out_lin
+        
+                # Décision d'utiliser le teacher forcing ou la prédiction du modèle pour l'entrée suivante
+                use_teacher = (torch.rand(1).item() < teacher_forcing_ratio) and self.training
+                if use_teacher:
+                    vec_in = target_seq[:, i].unsqueeze(1)
+                else:
+                    vec_in = out_lin.argmax(dim=1).unsqueeze(1)  # prédiction du modèle
+        else: 
+            for i in range(max_len):
+                attention_weights = None
+                embedded = self.dropout(self.embedding(vec_in))
+                if not self.lstm:
+                    out, hidden = self.decoder_layer(embedded, hidden)
+                else:
+                    out, (hidden, cell) = self.decoder_layer(embedded, (hidden, cell))
+                out_lin = self.fc(out[:,0,:])
+                vec_out[:,i,:] = out_lin
+
+                use_teacher = (torch.rand(1).item() < teacher_forcing_ratio) and self.training
+                if use_teacher:
+                    vec_in = target_seq[:, i].unsqueeze(1)
+                else:
+                    vec_in = out_lin.argmax(dim=1).unsqueeze(1)  # prédiction du modèle
+
+
+        return vec_out, hidden, attention_weights
+
+    def forward(self, x, target_seq, teacher_forcing_ratio=0.5):
+        out, h, c = self.encoder(x)
+        # Pas de teacher forcing à l'inférence (model.eval())
+
+        ratio = teacher_forcing_ratio if self.training else 0.0
+        out, hidden, attn = self.decoderWithAttn(out, h, target_seq, ratio, cell=c)
+        return out, hidden, attn
+    
+

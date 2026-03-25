@@ -11,6 +11,7 @@ def edit_distance(a,b):
     
     for coordinates, value in np.ndenumerate(D):
         x, y = coordinates
+        # Condition de selection pour la matrice de distance d'édition
         if x == 0:
             D[coordinates] = y
         elif y == 0:
@@ -22,8 +23,9 @@ def edit_distance(a,b):
                 min3 = D[x-1, y-1]
             else:
                 min3 = D[x-1, y-1] + 1
+            # Choix du minimum pour la distance d'édition
             D[coordinates] = np.min([min1, min2, min3])
-
+    # Distance d'édition finale
     return D[m,n]
 
 def confusion_matrix(true, pred, num_classes, ignore=[]):
